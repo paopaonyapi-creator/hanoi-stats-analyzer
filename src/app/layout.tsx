@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   description:
     "ระบบวิเคราะห์ข้อมูลย้อนหลังเชิงสถิติสำหรับฮานอยพิเศษ ฮานอยปกติ และฮานอยวีไอพี พร้อม dashboard, charts, trend scores และ CSV import",
   keywords: ["hanoi", "statistics", "analysis", "data", "trends"],
+  manifest: "/manifest.json",
+  themeColor: "#0a0c10",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Hanoi Lab",
+  },
 };
 
 export default function RootLayout({

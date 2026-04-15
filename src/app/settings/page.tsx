@@ -7,6 +7,9 @@ import {
   Download,
   Trash2,
   AlertTriangle,
+  Activity,
+  ShieldCheck,
+  Zap,
 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -40,23 +43,40 @@ export default function SettingsPage() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [health, setHealth] = useState<any>(null);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/settings?key=scoreWeights").then(r => r.json()),
-      fetch("/api/settings?key=line_notify_token").then(r => r.json())
+      fetch("/api/settings?key=line_notify_token").then(r => r.json()),
+      fetch("/api/analysis/health").then(r => r.json())
     ])
-      .then(([wData, lData]) => {
+      .then(([wData, lData, hData]) => {
         if (wData.scoreWeights) {
           setWeights({ ...DEFAULT_SCORE_WEIGHTS, ...wData.scoreWeights });
         }
         if (lData?.valueJson?.token) {
           setLineToken(lData.valueJson.token);
         }
+        if (hData.integrityScore !== undefined) {
+           setHealth(hData);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
+
+  const handleReScan = async () => {
+    setScanning(true);
+    try {
+       const res = await fetch("/api/analysis/health");
+       const data = await res.json();
+       setHealth(data);
+    } catch { } finally {
+       setScanning(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -231,6 +251,59 @@ export default function SettingsPage() {
              วิธีใช้: สร้าง Token ได้ที่ <a href="https://notify-bot.line.me/" target="_blank" className="underline font-bold">notify-bot.line.me</a>
            </p>
         </div>
+      </div>
+
+      {/* System Health Auditor */}
+      <div className="glass-card p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+           <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[var(--accent-emerald)]" />
+              คุณภาพข้อมูล & System Health
+           </h3>
+           <button 
+             onClick={handleReScan}
+             disabled={scanning}
+             className="text-xs text-[var(--accent-blue)] hover:underline flex items-center gap-1"
+           >
+             <Activity className={`w-3 h-3 ${scanning ? 'animate-spin' : ''}`} />
+             Re-scan
+           </button>
+        </div>
+        
+        {health && (
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)]">
+                 <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Integrity Score</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                       health.status === 'HEALTHY' ? 'bg-[rgba(16,185,129,0.1)] text-[var(--accent-emerald)]' : 
+                       health.status === 'WARNING' ? 'bg-[rgba(245,158,11,0.1)] text-[var(--accent-amber)]' : 
+                       'bg-[rgba(244,63,94,0.1)] text-[var(--accent-rose)]'
+                    }`}>
+                       {health.status}
+                    </span>
+                 </div>
+                 <div className="text-3xl font-black text-white">{health.integrityScore}%</div>
+                 <p className="text-[10px] text-[var(--text-muted)] mt-2 italic">{health.recommendation}</p>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] overflow-hidden">
+                 <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider block mb-2">Data Gaps (Last 30 Days)</span>
+                 <div className="space-y-2">
+                    {['SPECIAL', 'NORMAL', 'VIP'].map(type => (
+                       <div key={type} className="flex items-center justify-between text-[10px]">
+                          <span className="font-bold">{type}</span>
+                          {health.missingDays[type].length > 0 ? (
+                             <span className="text-[var(--accent-amber)]">{health.missingDays[type].length} days missing</span>
+                          ) : (
+                             <span className="text-[var(--accent-emerald)] font-bold">100% COMPLETE</span>
+                          )}
+                       </div>
+                    ))}
+                 </div>
+              </div>
+           </div>
+        )}
       </div>
 
       {/* Export */}
