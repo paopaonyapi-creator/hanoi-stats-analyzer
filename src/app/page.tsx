@@ -32,6 +32,7 @@ import { ChartCard } from "@/components/common/chart-card";
 import { LoadingState } from "@/components/common/loading-state";
 import { EmptyState } from "@/components/common/empty-state";
 import { LiveMonitor } from "@/components/dashboard/LiveMonitor";
+import { FortuneSpawner } from "@/components/dashboard/FortuneSpawner";
 import { DRAW_TYPE_LABELS, DRAW_TYPE_COLORS, WEEKDAY_LABELS_EN } from "@/lib/constants";
 import type { AnalysisSummary } from "@/types";
 
@@ -44,23 +45,26 @@ const TYPE_COLORS = [
 export default function DashboardPage() {
   const [data, setData] = useState<AnalysisSummary | null>(null);
   const [accuracy, setAccuracy] = useState<{ hitRate: number; nearMissRate: number } | null>(null);
+  const [predictions, setPredictions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/analysis/summary").then((r) => r.json()),
-      fetch("/api/predict/accuracy?days=30").then((r) => r.json())
-    ])
-      .then(([summary, acc]) => {
-        if (summary.error) {
-          setError(summary.error);
-        } else if (summary.totalRecords !== undefined) {
-          setData(summary);
-          if (!acc.error) setAccuracy(acc);
-        }
-        setLoading(false);
-      })
+      Promise.all([
+        fetch("/api/analysis/summary").then((r) => r.json()),
+        fetch("/api/predict/accuracy?days=30").then((r) => r.json()),
+        fetch("/api/predict?type=NORMAL").then((r) => r.json())
+      ])
+        .then(([summary, acc, pred]) => {
+          if (summary.error) {
+            setError(summary.error);
+          } else if (summary.totalRecords !== undefined) {
+            setData(summary);
+            if (!acc.error) setAccuracy(acc);
+            if (pred.predictions) setPredictions(pred.predictions);
+          }
+          setLoading(false);
+        })
       .catch((e) => {
         setError(e.message);
         setLoading(false);
@@ -126,6 +130,21 @@ export default function DashboardPage() {
       </PageHeader>
 
       <LiveMonitor />
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <FortuneSpawner predictions={predictions} />
+          {/* Recent Verdict / Status Summary could go here */}
+          <div className="glass-card p-6 flex flex-col justify-center">
+             <div className="flex items-center gap-3 mb-2">
+                < Award className="w-5 h-5 text-[var(--accent-emerald)]" />
+                <h3 className="font-bold">Market Intelligence</h3>
+             </div>
+             <p className="text-sm text-[var(--text-secondary)]">
+                ปัจจุบันความแม่นยำของ AI อยู่ที่ <span className="text-[var(--accent-emerald)] font-bold">{accuracy?.hitRate}%</span> 
+                จากข้อมูลทั้งหมด {data.totalRecords} งวด โดยมีความเอนเอียง (Bias) ไปทางกลุ่มตัวเลข {data.topLast2[0]?.value}
+             </p>
+          </div>
+      </div>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
