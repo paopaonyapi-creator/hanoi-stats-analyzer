@@ -18,11 +18,12 @@ import { useState } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/prediction", label: "AI Prediction", icon: Brain },
   { href: "/results", label: "ผลย้อนหลัง", icon: List },
   { href: "/import", label: "นำเข้าข้อมูล", icon: Upload },
   { href: "/analysis", label: "วิเคราะห์สถิติ", icon: BarChart3 },
   { href: "/trend-score", label: "Trend Score", icon: TrendingUp },
-  { href: "/truth", label: "Truth Engine", icon: Brain },
+  { href: "/truth", label: "Truth Engine", icon: Activity },
   { href: "/settings", label: "ตั้งค่า", icon: Settings },
 ];
 
