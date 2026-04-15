@@ -1,0 +1,137 @@
+// Prisma Schema for Hanoi Stats Analyzer + Truth Engine
+// PostgreSQL production database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ═══════════════════════════════════════════════
+// Enums
+// ═══════════════════════════════════════════════
+
+enum DrawType {
+  SPECIAL
+  NORMAL
+  VIP
+}
+
+enum IntegrityLevel {
+  HIGH
+  MEDIUM
+  LOW
+  BROKEN
+}
+
+enum RealityVerdict {
+  STRONG
+  MODERATE
+  WEAK
+  NO_RELIABLE_EDGE
+}
+
+// ═══════════════════════════════════════════════
+// Core Models
+// ═══════════════════════════════════════════════
+
+model DrawResult {
+  id           String   @id @default(cuid())
+  drawDate     DateTime
+  drawType     DrawType
+  drawTime     String?
+  resultRaw    String
+  resultDigits String
+  last1        String
+  last2        String
+  last3        String
+  weekday      Int
+  monthKey     String
+  source       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([drawDate, drawType, resultDigits])
+  @@index([drawType])
+  @@index([drawDate])
+  @@index([last2])
+  @@index([last3])
+}
+
+model ImportLog {
+  id           String   @id @default(cuid())
+  fileName     String
+  totalRows    Int
+  importedRows Int
+  skippedRows  Int
+  errorRows    Int
+  detailJson   Json?
+  createdAt    DateTime @default(now())
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueJson Json
+  updatedAt DateTime @updatedAt
+}
+
+// ═══════════════════════════════════════════════
+// Truth Engine Models
+// ═══════════════════════════════════════════════
+
+model AnalysisSnapshot {
+  id             String         @id @default(cuid())
+  createdAt      DateTime       @default(now())
+  datasetSize    Int
+  integrityScore Float
+  integrityLevel IntegrityLevel
+  summaryJson    Json
+  notesJson      Json?
+}
+
+model TrendScoreSnapshot {
+  id             String    @id @default(cuid())
+  createdAt      DateTime  @default(now())
+  drawType       DrawType?
+  windowType     String
+  trendScoreJson Json
+  confidenceJson Json
+  evidenceJson   Json
+  verdictJson    Json?
+}
+
+model BacktestRun {
+  id              String         @id @default(cuid())
+  createdAt       DateTime       @default(now())
+  drawType        DrawType?
+  windowType      String
+  configJson      Json
+  resultJson      Json
+  baselineDelta   Float?
+  calibrationJson Json?
+  driftJson       Json?
+  verdict         RealityVerdict
+}
+
+model EngineAuditLog {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  eventType  String
+  severity   String
+  detailJson Json
+
+  @@index([eventType])
+  @@index([createdAt])
+}
+
+model EngineSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueJson Json
+  updatedAt DateTime @updatedAt
+}
