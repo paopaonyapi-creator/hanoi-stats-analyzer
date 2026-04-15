@@ -4,10 +4,10 @@ import { DrawType } from '@prisma/client';
 
 export async function GET(
   request: Request,
-  { params }: { params: { value: string } }
+  { params }: { params: Promise<{ value: string }> }
 ) {
   try {
-    const value = params.value;
+    const { value } = await params;
     const is3D = value.length === 3;
     const is2D = value.length === 2;
 
