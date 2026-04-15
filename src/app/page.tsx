@@ -31,6 +31,7 @@ import { StatCard } from "@/components/common/stat-card";
 import { ChartCard } from "@/components/common/chart-card";
 import { LoadingState } from "@/components/common/loading-state";
 import { EmptyState } from "@/components/common/empty-state";
+import { LiveMonitor } from "@/components/dashboard/LiveMonitor";
 import { DRAW_TYPE_LABELS, DRAW_TYPE_COLORS, WEEKDAY_LABELS_EN } from "@/lib/constants";
 import type { AnalysisSummary } from "@/types";
 
@@ -42,17 +43,21 @@ const TYPE_COLORS = [
 
 export default function DashboardPage() {
   const [data, setData] = useState<AnalysisSummary | null>(null);
+  const [accuracy, setAccuracy] = useState<{ hitRate: number; nearMissRate: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/analysis/summary")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) {
-          setError(d.error);
-        } else if (d.totalRecords !== undefined) {
-          setData(d);
+    Promise.all([
+      fetch("/api/analysis/summary").then((r) => r.json()),
+      fetch("/api/predict/accuracy?days=30").then((r) => r.json())
+    ])
+      .then(([summary, acc]) => {
+        if (summary.error) {
+          setError(summary.error);
+        } else if (summary.totalRecords !== undefined) {
+          setData(summary);
+          if (!acc.error) setAccuracy(acc);
         }
         setLoading(false);
       })
@@ -120,8 +125,10 @@ export default function DashboardPage() {
         </Link>
       </PageHeader>
 
+      <LiveMonitor />
+
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <StatCard
           label="ข้อมูลทั้งหมด"
           value={data.totalRecords}
@@ -141,9 +148,16 @@ export default function DashboardPage() {
           }
         />
         <StatCard
-          label="เลข 2 ตัวท้ายที่มาบ่อย"
-          value={hotLast2?.value || "-"}
+          label="AI Accuracy"
+          value={accuracy ? `${accuracy.hitRate}%` : "-"}
           icon={Award}
+          color="emerald"
+          subtitle={`ในรอบ 30 วันที่ผ่านมา`}
+        />
+        <StatCard
+          label="เลขที่มาบ่อย"
+          value={hotLast2?.value || "-"}
+          icon={TrendingUp}
           color="amber"
           subtitle={`${hotLast2?.count || 0} ครั้ง (${hotLast2?.percentage || 0}%)`}
         />
@@ -151,7 +165,7 @@ export default function DashboardPage() {
           label="ประเภท"
           value={`${data.byType.SPECIAL}/${data.byType.NORMAL}/${data.byType.VIP}`}
           icon={Hash}
-          color="emerald"
+          color="blue"
           subtitle="Special / Normal / VIP"
         />
       </div>
