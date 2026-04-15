@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LoadingState } from "@/components/common/loading-state";
-import { Brain, Sparkles, TrendingUp, RefreshCw, ChevronRight, Activity } from "lucide-react";
+import { Brain, TrendingUp, Target, Activity, Clock, ChevronRight, Share2, Shield, RefreshCw, Sparkles } from "lucide-react";
 import { ChartCard } from "@/components/common/chart-card";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
@@ -13,29 +13,42 @@ interface Prediction {
   reasons: string[];
 }
 
+type DrawType = "NORMAL" | "SPECIAL" | "VIP";
+
+interface PredictionResponse {
+  predictions: Prediction[];
+}
+
 export default function PredictionPage() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const fetchPredictions = () => {
-    setLoading(true);
-    fetch("/api/predict")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.error) setError(data.error);
-        else setPredictions(data.predictions || []);
-        setLoading(false);
-      })
-      .catch((err) => {
-        setError(err.message);
-        setLoading(false);
-      });
-  };
+  const [type, setType] = useState<DrawType>("NORMAL");
+  const [strategies, setStrategies] = useState<any[]>([]);
+  const [activeStrategy, setActiveStrategy] = useState<string>("balanced");
 
   useEffect(() => {
-    fetchPredictions();
+     fetch("/api/predict/strategies").then(r => r.json()).then(setStrategies);
   }, []);
+
+  const fetchPredictions = useCallback(async () => {
+    setLoading(true);
+    try {
+      const strategy = strategies.find(s => s.id === activeStrategy) || { freqWeight: 0.5, seqWeight: 0.5 };
+      const res = await fetch(`/api/predict?type=${type}&freqWeight=${strategy.freqWeight}&seqWeight=${strategy.seqWeight}`);
+      const data = await res.json();
+      if (data.error) setError(data.error);
+      else setPredictions(data.predictions || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [type, activeStrategy, strategies]);
+
+  useEffect(() => {
+    if (strategies.length > 0) fetchPredictions();
+  }, [fetchPredictions, strategies]);
 
   if (loading) return <LoadingState />;
 
@@ -66,8 +79,37 @@ export default function PredictionPage() {
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <div className="flex items-center gap-2 bg-[rgba(255,255,255,0.03)] p-1 rounded-lg border border-[var(--border-color)]">
+            {strategies.map(s => (
+                <button
+                    key={s.id}
+                    onClick={() => setActiveStrategy(s.id)}
+                    className={`px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${
+                        activeStrategy === s.id 
+                        ? 'bg-[var(--accent-blue)] text-white shadow-lg' 
+                        : 'text-[var(--text-muted)] hover:text-white'
+                    }`}
+                >
+                    {s.name.split(' (')[0]}
+                </button>
+            ))}
+        </div>
+        <div className="h-6 w-px bg-[rgba(255,255,255,0.1)] hidden sm:block"></div>
+        {(["NORMAL", "SPECIAL", "VIP"] as DrawType[]).map((t) => (
+            <button
+                key={t}
+                onClick={() => setType(t)}
+                className={`px-4 py-1.5 rounded-md text-[10px] font-bold transition-all ${
+                    type === t ? 'bg-[var(--accent-violet)] text-white' : 'text-[var(--text-muted)] hover:text-white'
+                }`}
+            >
+                {t}
+            </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Top 1 Prediction Hologram Card */}
         {predictions.length > 0 && (
           <div className="lg:col-span-1">
             <div className="glass-card relative overflow-hidden group h-full">
@@ -94,7 +136,6 @@ export default function PredictionPage() {
           </div>
         )}
 
-        {/* Other Predictions List */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           <ChartCard title="การวิเคราะห์เลขเต็งอันดับถัดมา">
             <div className="flex flex-col gap-3 mt-2">

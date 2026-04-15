@@ -36,6 +36,8 @@ export default function SimulationLabPage() {
     const [loading, setLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
     const [data, setData] = useState<any>(null);
+    const [strategies, setStrategies] = useState<any[]>([]);
+    const [activeStrategy, setActiveStrategy] = useState<string>("custom");
     const [optimizationData, setOptimizationData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [applying, setApplying] = useState(false);
@@ -104,8 +106,19 @@ export default function SimulationLabPage() {
     };
 
     useEffect(() => {
+        fetch("/api/predict/strategies").then(r => r.json()).then(setStrategies);
         runSimulation();
     }, []);
+
+    const handleStrategyChange = (sid: string) => {
+        setActiveStrategy(sid);
+        if (sid === "custom") return;
+        const strategy = strategies.find(s => s.id === sid);
+        if (strategy) {
+            setFreqWeight(strategy.freqWeight);
+            setSeqWeight(strategy.seqWeight);
+        }
+    };
 
     let cumulativeHits = 0;
     const chartData = data?.results.map((r: any, idx: number) => {
@@ -134,6 +147,20 @@ export default function SimulationLabPage() {
                         </div>
 
                         <div className="space-y-6">
+                            <div>
+                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">กลยุทธ์ (Select Strategy)</label>
+                                <select 
+                                    value={activeStrategy}
+                                    onChange={(e) => handleStrategyChange(e.target.value)}
+                                    className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[var(--accent-blue)]"
+                                >
+                                    <option value="custom">Custom Parameters (Manual)</option>
+                                    {strategies.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             <div>
                                 <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">ประเภทหวย</label>
                                 <select 

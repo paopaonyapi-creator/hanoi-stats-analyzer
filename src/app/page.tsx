@@ -11,6 +11,16 @@ import {
   Upload,
   Award,
   Clock,
+  ShieldCheck,
+  Zap,
+  Bot,
+  Signal,
+  LayoutDashboard,
+  Tv,
+  Microscope,
+  FileDown,
+  Lightbulb,
+  ArrowRight
 } from "lucide-react";
 import {
   BarChart,
@@ -33,6 +43,8 @@ import { LoadingState } from "@/components/common/loading-state";
 import { EmptyState } from "@/components/common/empty-state";
 import { LiveMonitor } from "@/components/dashboard/LiveMonitor";
 import { FortuneSpawner } from "@/components/dashboard/FortuneSpawner";
+import { GapMatrix } from "@/components/dashboard/GapMatrix";
+import { MarketRadar } from "@/components/dashboard/MarketRadar";
 import { DRAW_TYPE_LABELS, DRAW_TYPE_COLORS, WEEKDAY_LABELS_EN } from "@/lib/constants";
 import type { AnalysisSummary } from "@/types";
 
@@ -45,6 +57,8 @@ const TYPE_COLORS = [
 export default function DashboardPage() {
   const [data, setData] = useState<AnalysisSummary | null>(null);
   const [accuracy, setAccuracy] = useState<{ hitRate: number; nearMissRate: number } | null>(null);
+  const [status, setStatus] = useState<any>(null);
+  const [briefing, setBriefing] = useState<any>(null);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,15 +67,19 @@ export default function DashboardPage() {
       Promise.all([
         fetch("/api/analysis/summary").then((r) => r.json()),
         fetch("/api/predict/accuracy?days=30").then((r) => r.json()),
-        fetch("/api/predict?type=NORMAL").then((r) => r.json())
+        fetch("/api/predict?type=NORMAL").then((r) => r.json()),
+        fetch("/api/analysis/status").then((r) => r.json()),
+        fetch("/api/analysis/briefing").then((r) => r.json())
       ])
-        .then(([summary, acc, pred]) => {
+        .then(([summary, acc, pred, statusData, briefData]) => {
           if (summary.error) {
             setError(summary.error);
           } else if (summary.totalRecords !== undefined) {
             setData(summary);
             if (!acc.error) setAccuracy(acc);
             if (pred.predictions) setPredictions(pred.predictions);
+            if (!statusData.error) setStatus(statusData);
+            if (!briefData.error) setBriefing(briefData);
           }
           setLoading(false);
         })
@@ -112,38 +130,90 @@ export default function DashboardPage() {
   return (
     <div className="animate-fade-in">
       <PageHeader
-        title="Dashboard"
-        description="ภาพรวมข้อมูลสถิติย้อนหลัง"
+        title="Intelligence Hub"
+        description="Operational Command Center for Hanoi Intelligence Platform"
       >
-        <Link href="/import" className="btn-secondary text-sm">
-          <Upload className="w-4 h-4 inline mr-1" />
-          Import
-        </Link>
-        <Link href="/analysis" className="btn-secondary text-sm">
-          <BarChart3 className="w-4 h-4 inline mr-1" />
-          Analysis
-        </Link>
-        <Link href="/trend-score" className="btn-primary text-sm">
-          <TrendingUp className="w-4 h-4 inline mr-1" />
-          Trend Score
-        </Link>
+        <div className="flex gap-2">
+            <Link href="/analysis/broadcast" className="btn-secondary text-xs flex items-center gap-2 bg-[rgba(239,68,68,0.1)] border-[#ef444433] text-[var(--accent-rose)] hover:bg-[rgba(239,68,68,0.2)]">
+                <Tv className="w-3.5 h-3.5" />
+                Live TV
+            </Link>
+            <Link href="/analysis/simulation" className="btn-secondary text-xs flex items-center gap-2">
+                <Microscope className="w-3.5 h-3.5" />
+                Simulation
+            </Link>
+            <button onClick={() => window.open('/api/results/export')} className="btn-secondary text-xs flex items-center gap-2">
+                <FileDown className="w-3.5 h-3.5" />
+                Export
+            </button>
+        </div>
       </PageHeader>
 
-      <LiveMonitor />
+      {/* AI Daily Briefing Banner */}
+      {briefing && (
+          <div className="mb-6 glass-card p-4 border-l-4 border-l-[var(--accent-violet)] bg-[rgba(139,92,246,0.05)] flex flex-col md:flex-row items-center justify-between gap-4 animate-slide-up">
+              <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-[var(--accent-violet)] flex items-center justify-center flex-shrink-0 shadow-[0_0_15px_rgba(139,92,246,0.5)]">
+                      <Lightbulb className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                      <h4 className="text-[10px] font-black text-[var(--accent-violet)] uppercase tracking-[0.2em] mb-1">AI Daily Briefing</h4>
+                      <p className="text-xs text-white leading-relaxed font-medium">"{briefing.generalBrief}"</p>
+                  </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="text-[10px] text-[var(--text-muted)] text-right">
+                      Assessment Score
+                      <div className="text-sm font-black text-white">{Math.round(briefing.champion.energy)}%</div>
+                  </div>
+                  <Link href="/prediction" className="w-8 h-8 rounded-full bg-[var(--bg-input)] border border-[var(--border-color)] flex items-center justify-center hover:bg-[var(--accent-violet)] transition-all group">
+                    <ArrowRight className="w-4 h-4 text-[var(--text-muted)] group-hover:text-white" />
+                  </Link>
+              </div>
+          </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
+          {/* Tactical Status Zone */}
+          <div className="lg:col-span-1 space-y-4">
+              <div className="glass-card p-5 border-l-4 border-l-[var(--accent-emerald)]">
+                  <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-[var(--accent-emerald)]" />
+                          <span className="text-[10px] font-bold uppercase tracking-widest">Integrity Status</span>
+                      </div>
+                      <span className="text-xs font-black text-white">{status?.integrity.score}%</span>
+                  </div>
+                  <div className="h-1.5 w-full bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
+                      <div className="h-full bg-[var(--accent-emerald)] rounded-full" style={{ width: `${status?.integrity.score}%` }}></div>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-2">Data reliability is currently <span className="font-bold">{status?.integrity.level}</span></p>
+              </div>
+
+              {briefing && <MarketRadar data={briefing.assessments} />}
+
+              <div className="glass-card p-5 border-l-4 border-l-[var(--accent-blue)]">
+                  <div className="flex items-center gap-2 mb-3">
+                      <Bot className="w-4 h-4 text-[var(--accent-blue)]" />
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white">Active Strategy</span>
+                  </div>
+                  <div className="text-sm font-black text-white mb-1 line-clamp-1">{status?.strategy.active}</div>
+                  <div className="flex items-center gap-3">
+                      <div className="text-[10px] text-[var(--text-muted)]">F: {Math.round(status?.strategy.weights.freqWeight * 100)}%</div>
+                      <div className="text-[10px] text-[var(--text-muted)]">S: {Math.round(status?.strategy.weights.seqWeight * 100)}%</div>
+                  </div>
+              </div>
+          </div>
+
+          {/* Operation Monitor Zone */}
+          <div className="lg:col-span-3">
+              <LiveMonitor />
+          </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <GapMatrix gaps={data.gapAnalysis} />
           <FortuneSpawner predictions={predictions} />
-          {/* Recent Verdict / Status Summary could go here */}
-          <div className="glass-card p-6 flex flex-col justify-center">
-             <div className="flex items-center gap-3 mb-2">
-                < Award className="w-5 h-5 text-[var(--accent-emerald)]" />
-                <h3 className="font-bold">Market Intelligence</h3>
-             </div>
-             <p className="text-sm text-[var(--text-secondary)]">
-                ปัจจุบันความแม่นยำของ AI อยู่ที่ <span className="text-[var(--accent-emerald)] font-bold">{accuracy?.hitRate}%</span> 
-                จากข้อมูลทั้งหมด {data.totalRecords} งวด โดยมีความเอนเอียง (Bias) ไปทางกลุ่มตัวเลข {data.topLast2[0]?.value}
-             </p>
-          </div>
       </div>
 
       {/* Stat Cards */}
