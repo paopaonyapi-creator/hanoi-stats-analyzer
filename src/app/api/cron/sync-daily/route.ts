@@ -139,6 +139,19 @@ export async function GET(request: Request) {
              latest.last2
            );
            await sendLineNotify(message, lineToken);
+
+           // 3. AI CONFIDENCE ALERT (Check for signal > 90%)
+           const predResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/predict?type=${src.type}`).then(r => r.json());
+           if (predResponse.predictions && predResponse.predictions[0].confidence >= 90) {
+             const topPick = predResponse.predictions[0];
+             const alertMessage = `
+⚠️ [HIGH CONFIDENCE SIGNAL] ⚠️
+ฮานอย: ${src.label}
+สัญญาณแรงระดับ: ${topPick.confidence}%
+เลขเด็ดข้ามงวด: ${topPick.number}
+            `.trim();
+             await sendLineNotify(alertMessage, lineToken);
+           }
         }
       }
 

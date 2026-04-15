@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Search, Filter, ChevronLeft, ChevronRight, Eye } from "lucide-react";
+import { Search, Filter, ChevronLeft, ChevronRight, Eye, Download } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LoadingState } from "@/components/common/loading-state";
 import { EmptyState } from "@/components/common/empty-state";
@@ -68,7 +68,16 @@ export default function ResultsPage() {
       <PageHeader
         title="ผลย้อนหลัง"
         description="ตารางข้อมูลผลทั้งหมดในระบบ"
-      />
+      >
+        <a 
+          href="/api/results/export" 
+          download 
+          className="btn-secondary text-xs flex items-center gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export CSV
+        </a>
+      </PageHeader>
 
       {/* Filter Bar */}
       <div className="glass-card p-4 mb-6">
