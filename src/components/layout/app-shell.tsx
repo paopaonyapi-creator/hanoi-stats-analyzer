@@ -25,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/analysis/search", label: "เจาะลึกเลขเด็ด", icon: Database },
   { href: "/analysis/calendar", label: "Lucky Calendar", icon: Calendar },
   { href: "/analysis/heatmap", label: "Heatmap", icon: Activity },
+  { href: "/analysis/simulation", label: "AI Simulation Lab", icon: Zap },
   { href: "/trend-score", label: "Trend Score", icon: TrendingUp },
   { href: "/truth", label: "Truth Engine", icon: Brain },
   { href: "/settings", label: "Notifications & ตั้งค่า", icon: Settings },
