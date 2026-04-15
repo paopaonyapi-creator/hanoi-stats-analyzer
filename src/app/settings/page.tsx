@@ -31,19 +31,27 @@ export default function SettingsPage() {
   const [weights, setWeights] = useState<ScoreWeights>({
     ...DEFAULT_SCORE_WEIGHTS,
   });
+  const [lineToken, setLineToken] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingToken, setSavingToken] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [tokenSaved, setTokenSaved] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.scoreWeights) {
-          setWeights({ ...DEFAULT_SCORE_WEIGHTS, ...d.scoreWeights });
+    Promise.all([
+      fetch("/api/settings?key=scoreWeights").then(r => r.json()),
+      fetch("/api/settings?key=line_notify_token").then(r => r.json())
+    ])
+      .then(([wData, lData]) => {
+        if (wData.scoreWeights) {
+          setWeights({ ...DEFAULT_SCORE_WEIGHTS, ...wData.scoreWeights });
+        }
+        if (lData?.valueJson?.token) {
+          setLineToken(lData.valueJson.token);
         }
         setLoading(false);
       })
@@ -64,10 +72,27 @@ export default function SettingsPage() {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch {
-      // handle
-    } finally {
+    } catch { } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveToken = async () => {
+    setSavingToken(true);
+    setTokenSaved(false);
+    try {
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "line_notify_token",
+          valueJson: { token: lineToken },
+        }),
+      });
+      setTokenSaved(true);
+      setTimeout(() => setTokenSaved(false), 3000);
+    } catch { } finally {
+      setSavingToken(false);
     }
   };
 
@@ -169,6 +194,42 @@ export default function SettingsPage() {
             <RotateCcw className="w-4 h-4 inline mr-1" />
             รีเซ็ตค่าเริ่มต้น
           </button>
+        </div>
+      </div>
+
+      {/* Line Notify */}
+      <div className="glass-card p-6 mb-6">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">
+          Line Notify (การแจ้งเตือน)
+        </h3>
+        <p className="text-xs text-[var(--text-muted)] mb-4">
+          รับการแจ้งเตือนผลหวย และ AI Prediction สดทาง Line เมื่อระบบอัปเดตข้อมูลรายวัน
+        </p>
+
+        <div className="max-w-md">
+           <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider block mb-1">Line Notify Token</label>
+           <input 
+             type="password"
+             value={lineToken}
+             onChange={(e) => setLineToken(e.target.value)}
+             className="input-field mb-4"
+             placeholder="Pasted your Line Notify Token here..."
+           />
+           <button 
+             onClick={handleSaveToken}
+             disabled={savingToken}
+             className="btn-primary"
+           >
+             <Save className="w-4 h-4 inline mr-1" />
+             {savingToken ? "กำลังบันทึก..." : tokenSaved ? "บันทึก Token สำเร็จ ✓" : "บันทึก Token"}
+           </button>
+        </div>
+        
+        <div className="mt-6 p-4 rounded-lg bg-[rgba(59,130,246,0.05)] border border-[rgba(59,130,246,0.1)]">
+           <p className="text-[11px] text-[var(--accent-blue)] flex items-center gap-2">
+             <AlertTriangle className="w-3 h-3" />
+             วิธีใช้: สร้าง Token ได้ที่ <a href="https://notify-bot.line.me/" target="_blank" className="underline font-bold">notify-bot.line.me</a>
+           </p>
         </div>
       </div>
 

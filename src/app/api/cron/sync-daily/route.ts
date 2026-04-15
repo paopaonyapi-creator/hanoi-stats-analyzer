@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { PrismaClient, DrawType } from "@prisma/client";
+import { sendLineNotify, formatResultForLine } from "@/lib/services/line";
 
-const prisma = new PrismaClient(); // In development, should use a singleton, but for a cron route it's acceptable.
+const prisma = new PrismaClient();
 
 const SOURCES = [
   { type: "SPECIAL" as DrawType, slug: "xsthm", time: "17:05", label: "ฮานอยพิเศษ" },
@@ -24,7 +25,6 @@ async function fetchHtml(url: string): Promise<string> {
   return res.text();
 }
 
-/** Parses one page of data via Regex */
 function parseExphuayHtml(html: string) {
   const results: Map<string, any> = new Map();
   const dateRe = /href="\/result\/[^?]+\?date=(\d{4}-\d{2}-\d{2})[^"]*"/g;
@@ -77,10 +77,8 @@ function buildRecord(entry: any, drawType: DrawType, drawTime: string) {
   };
 }
 
-// Ensure execution is secured
 export async function GET(request: Request) {
   try {
-    // 1. Basic security explicitly via header or query
     const { searchParams } = new URL(request.url);
     const apiKey = request.headers.get("authorization")?.split(" ")[1] || searchParams.get("key");
 
@@ -88,10 +86,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 1. Fetch Line Token from settings
+    const lineSetting = await prisma.appSetting.findUnique({ where: { key: 'line_notify_token' } });
+    const lineToken = (lineSetting?.valueJson as any)?.token;
+
     let totalInserted = 0;
     const logs = [];
 
-    // 2. Fetch today's data (only page 1 is needed to get the most recent data)
     for (const src of SOURCES) {
       const url = `https://exphuay.com/backward/${src.slug}`;
       let html = "";
@@ -112,10 +113,11 @@ export async function GET(request: Request) {
       
       const result = await prisma.drawResult.createMany({
         data: records,
-        skipDuplicates: true, // Only creates if it doesn't already exist natively
+        skipDuplicates: true,
       });
 
       if (result.count > 0) {
+        // Log import
         await prisma.importLog.create({
           data: {
             fileName: `daily-cron-${src.slug}`,
@@ -126,12 +128,23 @@ export async function GET(request: Request) {
             detailJson: { source: "cron", type: src.type },
           },
         });
+
+        // 2. TRIGGER NOTIFICATION if token exists
+        if (lineToken) {
+           const latest = records[0]; 
+           const message = formatResultForLine(
+             src.label, 
+             latest.drawDate.toLocaleDateString('th-TH'),
+             latest.resultDigits,
+             latest.last2
+           );
+           await sendLineNotify(message, lineToken);
+        }
       }
 
       logs.push(`${src.label}: Processed ${entries.length}, Inserted ${result.count} new records.`);
       totalInserted += result.count;
-
-      await sleep(DELAY_MS); // Be nice to the source
+      await sleep(DELAY_MS);
     }
 
     return NextResponse.json({

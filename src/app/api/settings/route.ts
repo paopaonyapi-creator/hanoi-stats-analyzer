@@ -3,8 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { safeParseJson } from "@/lib/utils";
 
 // GET /api/settings
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const key = url.searchParams.get("key");
+
+    if (key) {
+      const setting = await prisma.appSetting.findUnique({ where: { key } });
+      return NextResponse.json(setting ? { [key]: safeParseJson(setting.valueJson, null) } : {});
+    }
+
     const settings = await prisma.appSetting.findMany();
     const result: Record<string, any> = {};
     settings.forEach((s) => {

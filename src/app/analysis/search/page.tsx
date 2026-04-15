@@ -159,7 +159,7 @@ export default function NumberSearchPage() {
                                     <div className="text-right">
                                         <p className="text-xs text-[var(--text-muted)]">ในประเภท</p>
                                         <span className={`badge badge-${result.latestHit.type.toLowerCase()}`}>
-                                            {DRAW_TYPE_LABELS[result.latestHit.type as any]}
+                                            {DRAW_TYPE_LABELS[result.latestHit.type as keyof typeof DRAW_TYPE_LABELS]}
                                         </span>
                                     </div>
                                 </div>
@@ -185,7 +185,7 @@ export default function NumberSearchPage() {
                                                 </td>
                                                 <td>
                                                     <span className={`text-[10px] px-2 py-0.5 rounded bg-[var(--bg-card)] border border-[var(--border-color)]`}>
-                                                        {DRAW_TYPE_LABELS[h.type as any]}
+                                                        {DRAW_TYPE_LABELS[h.type as keyof typeof DRAW_TYPE_LABELS]}
                                                     </span>
                                                 </td>
                                                 <td className="font-mono text-[var(--accent-amber)] font-bold">

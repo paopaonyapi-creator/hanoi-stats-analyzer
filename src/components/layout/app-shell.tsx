@@ -23,9 +23,10 @@ const NAV_ITEMS = [
   { href: "/import", label: "นำเข้าข้อมูล", icon: Upload },
   { href: "/analysis", label: "วิเคราะห์สถิติ", icon: BarChart3 },
   { href: "/analysis/search", label: "เจาะลึกเลขเด็ด", icon: Database },
+  { href: "/analysis/heatmap", label: "Heatmap", icon: Activity },
   { href: "/trend-score", label: "Trend Score", icon: TrendingUp },
-  { href: "/truth", label: "Truth Engine", icon: Activity },
-  { href: "/settings", label: "ตั้งค่า", icon: Settings },
+  { href: "/truth", label: "Truth Engine", icon: Brain },
+  { href: "/settings", label: "Notifications & ตั้งค่า", icon: Settings },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
