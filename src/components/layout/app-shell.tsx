@@ -23,6 +23,7 @@ const NAV_ITEMS = [
   { href: "/import", label: "นำเข้าข้อมูล", icon: Upload },
   { href: "/analysis", label: "วิเคราะห์สถิติ", icon: BarChart3 },
   { href: "/analysis/search", label: "เจาะลึกเลขเด็ด", icon: Database },
+  { href: "/analysis/calendar", label: "Lucky Calendar", icon: Calendar },
   { href: "/analysis/heatmap", label: "Heatmap", icon: Activity },
   { href: "/trend-score", label: "Trend Score", icon: TrendingUp },
   { href: "/truth", label: "Truth Engine", icon: Brain },
