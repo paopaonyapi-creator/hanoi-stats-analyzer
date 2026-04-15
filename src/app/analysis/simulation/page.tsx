@@ -12,12 +12,13 @@ import {
     Zap, 
     Target, 
     AlertCircle,
-    Info
+    Info,
+    Trophy,
+    Save,
+    Sparkles
 } from "lucide-react";
 import { 
     ResponsiveContainer, 
-    LineChart, 
-    Line, 
     XAxis, 
     YAxis, 
     CartesianGrid, 
@@ -33,8 +34,11 @@ export default function SimulationLabPage() {
     const [freqWeight, setFreqWeight] = useState(0.6);
     const [seqWeight, setSeqWeight] = useState(0.4);
     const [loading, setLoading] = useState(false);
+    const [optimizing, setOptimizing] = useState(false);
     const [data, setData] = useState<any>(null);
+    const [optimizationData, setOptimizationData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
+    const [applying, setApplying] = useState(false);
 
     const runSimulation = async () => {
         setLoading(true);
@@ -51,12 +55,58 @@ export default function SimulationLabPage() {
         }
     };
 
-    // Auto-run on mount
+    const handleOptimize = async () => {
+        setOptimizing(true);
+        setError(null);
+        try {
+            const res = await fetch(`/api/predict/optimize?type=${type}&period=${period}`);
+            const d = await res.json();
+            if (d.error) setError(d.error);
+            else {
+                setOptimizationData(d);
+                setFreqWeight(d.champion.freqWeight);
+                setSeqWeight(d.champion.seqWeight);
+                runSimulation();
+            }
+        } catch (e: any) {
+            setError(e.message);
+        } finally {
+            setOptimizing(false);
+        }
+    };
+
+    const handleApplySetttings = async () => {
+        if (!optimizationData) return;
+        setApplying(true);
+        try {
+            await fetch("/api/settings", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    key: "scoreWeights",
+                    valueJson: {
+                        allTime: optimizationData.champion.freqWeight * 5,
+                        recent: optimizationData.champion.freqWeight * 3,
+                        gap: optimizationData.champion.seqWeight * 4,
+                        transition: optimizationData.champion.seqWeight * 4,
+                        digitBalance: 1,
+                        repeat: 1,
+                        weekday: 1
+                    },
+                }),
+            });
+            alert("บันทึกการตั้งค่าสำเร็จเป็น Champion Weights แล้ว!");
+        } catch (e) {
+            alert("เกิดข้อผิดพลาดในการบันทึก");
+        } finally {
+            setApplying(false);
+        }
+    };
+
     useEffect(() => {
         runSimulation();
     }, []);
 
-    // Prepare chart data (Cumulative hit rate)
     let cumulativeHits = 0;
     const chartData = data?.results.map((r: any, idx: number) => {
         if (r.isHit) cumulativeHits++;
@@ -76,7 +126,7 @@ export default function SimulationLabPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Control Panel */}
-                <div className="lg:col-span-1 space-y-6">
+                <div className="lg:col-span-1 flex flex-col gap-6">
                     <div className="glass-card p-6">
                         <div className="flex items-center gap-2 mb-4 text-[var(--accent-blue)]">
                             <Settings2 className="w-5 h-5" />
@@ -119,7 +169,6 @@ export default function SimulationLabPage() {
                                     }}
                                     className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-violet)]"
                                 />
-                                <p className="mt-2 text-[10px] text-[var(--text-muted)] italic">เน้นเลขที่มาบ่อยในอดีต (Hot numbers)</p>
                             </div>
 
                             <div>
@@ -134,19 +183,45 @@ export default function SimulationLabPage() {
                                     }}
                                     className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-magenta)]"
                                 />
-                                <p className="mt-2 text-[10px] text-[var(--text-muted)] italic">เน้นความสัมพันธ์ของเลขที่ออกต่อกัน (Transition)</p>
                             </div>
 
-                            <button 
-                                onClick={runSimulation}
-                                disabled={loading}
-                                className="w-full btn-primary py-3 flex items-center justify-center gap-2 mt-4"
-                            >
-                                {loading ? <Zap className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                                Run Simulation
-                            </button>
+                            <div className="flex flex-col gap-2 pt-2">
+                                <button 
+                                    onClick={runSimulation}
+                                    disabled={loading || optimizing}
+                                    className="w-full btn-secondary py-3 flex items-center justify-center gap-2"
+                                >
+                                    {loading ? <Zap className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                                    Run Simulation
+                                </button>
+
+                                <button 
+                                    onClick={handleOptimize}
+                                    disabled={loading || optimizing}
+                                    className="w-full bg-[var(--accent-emerald)] hover:opacity-90 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                                >
+                                    {optimizing ? <Sparkles className="w-4 h-4 animate-spin" /> : <Trophy className="w-4 h-4" />}
+                                    Find Winning Weights
+                                </button>
+                            </div>
                         </div>
                     </div>
+
+                    {optimizationData && (
+                        <div className="glass-card p-4 border border-[var(--accent-emerald)] bg-[rgba(16,185,129,0.05)]">
+                            <h4 className="text-[10px] font-black text-[var(--accent-emerald)] uppercase tracking-[0.2em] mb-3">Discovery Found!</h4>
+                            <div className="text-xs text-white mb-2">Best Hit Rate: <span className="font-bold">{optimizationData.champion.hitRate}%</span></div>
+                            <div className="text-[10px] text-[var(--text-muted)] mb-4">Weights: F{Math.round(optimizationData.champion.freqWeight * 100)} / S{Math.round(optimizationData.champion.seqWeight * 100)}</div>
+                            <button 
+                                onClick={handleApplySetttings}
+                                disabled={applying}
+                                className="w-full btn-primary text-[10px] py-2 flex items-center justify-center gap-2"
+                            >
+                                <Save className="w-3 h-3" />
+                                Apply to System Settings
+                            </button>
+                        </div>
+                    )}
 
                     <div className="glass-card p-5 bg-[rgba(59,130,246,0.05)] border-l-4 border-l-[var(--accent-blue)]">
                         <div className="flex items-center gap-2 mb-2 text-xs font-bold text-white uppercase">
