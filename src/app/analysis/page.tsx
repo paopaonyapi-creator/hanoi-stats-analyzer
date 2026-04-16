@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { ChartCard } from "@/components/common/chart-card";
@@ -21,7 +21,7 @@ const TOOLTIP_STYLE = {
   color: "#e8eaf6",
 };
 
-export default function AnalysisPage() {
+function AnalysisPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -421,5 +421,13 @@ export default function AnalysisPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AnalysisPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64 text-[var(--text-muted)]">กำลังโหลด...</div>}>
+      <AnalysisPageInner />
+    </Suspense>
   );
 }

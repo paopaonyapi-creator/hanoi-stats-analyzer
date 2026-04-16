@@ -57,7 +57,7 @@ export function runWalkForwardBacktest(
   }
 
   // Build folds
-  const folds = buildBacktestFolds(sorted, trainMinSize, testSize, stepSize, topK, settings, options?.drawType, records);
+  const folds = buildBacktestFolds(sorted, trainMinSize, testSize, stepSize, topK, settings, options?.drawType);
 
   if (folds.length === 0) {
     return {
@@ -87,8 +87,7 @@ export function buildBacktestFolds(
   stepSize: number,
   topK: number,
   settings: TruthEngineSettings,
-  drawType?: string | null,
-  allRecords?: DrawResultRecord[]
+  drawType?: string | null
 ): WalkForwardFold[] {
   const folds: WalkForwardFold[] = [];
   const maxFolds = 50; // cap folds to avoid excessive computation
@@ -103,7 +102,7 @@ export function buildBacktestFolds(
 
     if (testRecords.length === 0) continue;
 
-    const fold = evaluateFold(trainRecords, testRecords, topK, settings, folds.length, drawType, allRecords);
+    const fold = evaluateFold(trainRecords, testRecords, topK, settings, folds.length, drawType);
     folds.push(fold);
   }
 
@@ -119,8 +118,7 @@ export function evaluateFold(
   topK: number,
   settings: TruthEngineSettings,
   foldIndex: number,
-  drawType?: string | null,
-  allRecords?: DrawResultRecord[]
+  drawType?: string | null
 ): WalkForwardFold {
   // Build integrity from training data only
   const integrityReport = computeIntegrityReport(trainRecords);
@@ -128,8 +126,7 @@ export function evaluateFold(
   // Score using training data only — no future leakage
   const scores = buildTruthScores(trainRecords, integrityReport, { 
     settings,
-    drawType,
-    allRecords: allRecords // We pass all records here, scoring will filter for temporal integrity inside computeMarketCorrelation
+    drawType
   });
 
   // Get engine's top-K predictions

@@ -49,6 +49,7 @@ export interface NumberFeatures {
   entropyScore: number;
   varianceScore: number;
   marketCorrelationScore: number;
+  weekdayAlignmentScore: number;
 }
 
 export interface DatasetFeatures {

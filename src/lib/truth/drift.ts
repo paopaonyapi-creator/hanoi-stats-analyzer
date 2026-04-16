@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════
 
 import type { DrawResultRecord } from "@/types";
-import type { DriftReport, DriftArea } from "./types";
+import type { DriftReport, DriftArea, GlobalDriftReport } from "./types";
 
 /**
  * Detect distribution drift between reference (older) and recent data.

@@ -108,6 +108,7 @@ export function buildFeatureMatrix(
       entropyScore: computeEntropy(indices, total),
       varianceScore: gaps.length >= 2 ? variance(gaps) / (meanGap || 1) : 0,
       marketCorrelationScore,
+      weekdayAlignmentScore,
     };
   });
 }

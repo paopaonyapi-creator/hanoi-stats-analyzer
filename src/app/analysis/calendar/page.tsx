@@ -80,7 +80,7 @@ export default function LuckyCalendarPage() {
                         className="text-[8px] px-1 rounded bg-[var(--bg-card)] border border-[var(--border-color)] font-bold text-[var(--text-muted)]"
                         style={{ borderColor: (DRAW_TYPE_COLORS as any)[type] }}
                       >
-                        {DRAW_TYPE_LABELS[type as any].replace('ฮานอย', '')}
+                        {(DRAW_TYPE_LABELS as any)[type]?.replace('ฮานอย', '') || type}
                       </div>
                     ))}
                   </div>
@@ -109,8 +109,8 @@ export default function LuckyCalendarPage() {
               <div className="mt-4 space-y-3">
                  {data && Object.entries(data.powerWeekdays).map(([type, day]) => (
                     <div key={type} className="flex items-center justify-between p-2 rounded bg-[var(--bg-input)] border border-[var(--border-color)]">
-                       <span className="text-[10px] font-bold">{DRAW_TYPE_LABELS[type as any]}</span>
-                       <span className="text-[10px] text-[var(--accent-blue)] font-black">{weekdays[day]}</span>
+                       <span className="text-[10px] font-bold">{(DRAW_TYPE_LABELS as any)[type] || type}</span>
+                       <span className="text-[10px] text-[var(--accent-blue)] font-black">{weekdays[day as number]}</span>
                     </div>
                  ))}
               </div>

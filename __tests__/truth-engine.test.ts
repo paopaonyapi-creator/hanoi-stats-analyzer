@@ -193,6 +193,9 @@ describe("Signal Engine", () => {
       weekdayAlignmentScore: 0.3,
       digitBalanceScore: 0.9,
       transitionSupportScore: 0.05,
+      entropyScore: 2.1,
+      varianceScore: 15,
+      marketCorrelationScore: 0.2,
     };
 
     const ds = { totalRecords: 100, uniqueNumbers: 80, dateSpanDays: 100, avgRecordsPerDay: 1, hasMinimumForAnalysis: true, hasMinimumForBacktest: true };
@@ -208,8 +211,9 @@ describe("Signal Engine", () => {
     const features = {
       number: "23", frequencyAllTime: 0, frequencyRecent10: 0, frequencyRecent20: 0, frequencyRecent50: 0,
       recencyGap: null, meanGap: null, medianGap: null, recurrenceRate: 0, recencyDecayScore: 0,
-      windowStabilityScore: 0, varianceOfOccurrence: null, weekdayAlignmentScore: 0,
+      windowStabilityScore: 0, weekdayAlignmentScore: 0,
       digitBalanceScore: 0.5, transitionSupportScore: 0,
+      entropyScore: 0, varianceScore: 0, marketCorrelationScore: 0,
     };
     const ds = { totalRecords: 5, uniqueNumbers: 5, dateSpanDays: 5, avgRecordsPerDay: 1, hasMinimumForAnalysis: false, hasMinimumForBacktest: false };
 
@@ -386,7 +390,7 @@ describe("Reality Verdict", () => {
       integrityReport: { score: 30, level: "BROKEN", issues: [], quarantinedRowIds: [], acceptedRows: 30, rejectedRows: 70 },
       backtestSummary: { folds: [], totalFolds: 0, averageHitRate: 0, averageBaseline: 0.1, averageDelta: 0, calibrationBuckets: [], verdict: "NO_RELIABLE_EDGE", insufficientData: true, message: "" },
       baselineResult: { method: "test", topK: 10, engineHitRate: 0, randomExpectedHitRate: 0.1, delta: 0, interpretation: "below_baseline" },
-      driftReport: { driftScore: 0, affectedAreas: [], severity: "none", message: "" },
+      driftReport: { driftScore: 0, volatilityIndex: 0, affectedAreas: [], severity: "none", message: "" },
     });
     expect(result.verdict).toBe("NO_RELIABLE_EDGE");
     expect(result.integrityOk).toBe(false);
@@ -397,7 +401,7 @@ describe("Reality Verdict", () => {
       integrityReport: { score: 95, level: "HIGH", issues: [], quarantinedRowIds: [], acceptedRows: 200, rejectedRows: 0 },
       backtestSummary: { folds: [], totalFolds: 50, averageHitRate: 0.15, averageBaseline: 0.1, averageDelta: 0.05, calibrationBuckets: [], verdict: "STRONG", insufficientData: false, message: "" },
       baselineResult: { method: "test", topK: 10, engineHitRate: 0.15, randomExpectedHitRate: 0.1, delta: 0.05, interpretation: "clearly_above_baseline" },
-      driftReport: { driftScore: 0.05, affectedAreas: [], severity: "none", message: "" },
+      driftReport: { driftScore: 0.05, volatilityIndex: 0.1, affectedAreas: [], severity: "none", message: "" },
     });
     expect(result.verdict).toBe("STRONG");
     expect(result.backtestSupported).toBe(true);
@@ -409,7 +413,7 @@ describe("Reality Verdict", () => {
       integrityReport: { score: 95, level: "HIGH", issues: [], quarantinedRowIds: [], acceptedRows: 200, rejectedRows: 0 },
       backtestSummary: { folds: [], totalFolds: 50, averageHitRate: 0.15, averageBaseline: 0.1, averageDelta: 0.05, calibrationBuckets: [], verdict: "STRONG", insufficientData: false, message: "" },
       baselineResult: { method: "test", topK: 10, engineHitRate: 0.15, randomExpectedHitRate: 0.1, delta: 0.05, interpretation: "clearly_above_baseline" },
-      driftReport: { driftScore: 0.4, affectedAreas: [{ area: "digit_distribution", shift: 0.35, significance: "high" }], severity: "high", message: "drift" },
+      driftReport: { driftScore: 0.4, volatilityIndex: 0.5, affectedAreas: [{ area: "digit_distribution", shift: 0.35, significance: "high" }], severity: "high", message: "drift" },
     });
     expect(result.verdict).toBe("MODERATE"); // degraded from STRONG
     expect(result.driftActive).toBe(true);

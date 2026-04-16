@@ -323,14 +323,22 @@ export default function SettingsPage() {
              className="btn-primary"
            >
              <Save className="w-4 h-4 inline mr-1" />
-             {savingToken ? "กำลังบันทึก..." : tokenSaved ? "บันทึก Token สำเร็จ ✓" : "บันทึก Token"}
+             {savingTelegram ? "กำลังบันทึก..." : telegramSaved ? "บันทึกข้อมูลสำเร็จ ✓" : "บันทึกค่า Telegram"}
+           </button>
+           <button 
+             onClick={handleTestTelegram}
+             disabled={testingTelegram}
+             className="btn-secondary"
+           >
+             <Zap className="w-4 h-4 inline mr-1" />
+             {testingTelegram ? "กำลังส่ง..." : "ทดสอบส่งแจ้งเตือน"}
            </button>
         </div>
         
         <div className="mt-6 p-4 rounded-lg bg-[rgba(59,130,246,0.05)] border border-[rgba(59,130,246,0.1)]">
            <p className="text-[11px] text-[var(--accent-blue)] flex items-center gap-2">
              <AlertTriangle className="w-3 h-3" />
-             วิธีใช้: สร้าง Token ได้ที่ <a href="https://notify-bot.line.me/" target="_blank" className="underline font-bold">notify-bot.line.me</a>
+             วิธีใช้: สร้าง Bot และรับ Token ได้จาก @BotFather ในแอป Telegram
            </p>
         </div>
       </div>
@@ -375,8 +383,8 @@ export default function SettingsPage() {
                     {['SPECIAL', 'NORMAL', 'VIP'].map(type => (
                        <div key={type} className="flex items-center justify-between text-[10px]">
                           <span className="font-bold">{type}</span>
-                          {health.missingDays[type].length > 0 ? (
-                             <span className="text-[var(--accent-amber)]">{health.missingDays[type].length} days missing</span>
+                          {(health.missingDays as any)[type]?.length > 0 ? (
+                             <span className="text-[var(--accent-amber)]">{(health.missingDays as any)[type].length} days missing</span>
                           ) : (
                              <span className="text-[var(--accent-emerald)] font-bold">100% COMPLETE</span>
                           )}
@@ -394,13 +402,9 @@ export default function SettingsPage() {
           Export ข้อมูล
         </h3>
         <div className="flex flex-wrap gap-3">
-          <a href="/api/export/csv" download className="btn-secondary">
+          <a href="/api/results/export" download className="btn-secondary">
             <Download className="w-4 h-4 inline mr-1" />
             Export CSV
-          </a>
-          <a href="/api/export/json" download className="btn-secondary">
-            <Download className="w-4 h-4 inline mr-1" />
-            Export JSON
           </a>
         </div>
       </div>

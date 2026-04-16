@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
 
@@ -8,12 +8,15 @@ export const metadata: Metadata = {
     "ระบบวิเคราะห์ข้อมูลย้อนหลังเชิงสถิติสำหรับฮานอยพิเศษ ฮานอยปกติ และฮานอยวีไอพี พร้อม dashboard, charts, trend scores และ CSV import",
   keywords: ["hanoi", "statistics", "analysis", "data", "trends"],
   manifest: "/manifest.json",
-  themeColor: "#0a0c10",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Hanoi Lab",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0c10",
 };
 
 export default function RootLayout({

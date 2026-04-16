@@ -46,7 +46,7 @@ export function calculateNumericalMomentum(
 
     const baselineProb = totalFreq / totalCount || 0.01; // Avoid divide by zero
     const recentProb = recentFreq / options.recentWindow;
-    const microProb = microProb / options.momentumWindow;
+    const microProb = microFreq / options.momentumWindow;
 
     // Velocity: How much more frequent is it now than historical?
     const velocity = (recentProb / baselineProb);

@@ -37,13 +37,13 @@ export function analyzeCrossMarketCorrelation(records: DrawResultRecord[]): Corr
             const d2 = day.NORMAL.last2.split('');
             const d3 = day.VIP.last2.split('');
             
-            const common = d1.filter(x => d2.includes(x) || d3.includes(x));
+            const common = d1.filter((x: string) => d2.includes(x) || d3.includes(x));
             if (common.length > 0) totalSync += 0.5;
-            if (d1.some(x => d2.includes(x) && d3.includes(x))) totalSync += 0.5;
+            if (d1.some((x: string) => d2.includes(x) && d3.includes(x))) totalSync += 0.5;
 
             // Lead-Lag Analysis (Does Special influence Normal on the same day?)
             // We check if any digit from Special appears in Normal or VIP
-            if (d1.some(x => d2.includes(x))) leadHits++;
+            if (d1.some((x: string) => d2.includes(x))) leadHits++;
 
             // Global digit frequency for this window
             [...d1, ...d2, ...d3].forEach(d => {

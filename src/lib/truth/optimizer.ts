@@ -1,11 +1,7 @@
-// ═══════════════════════════════════════════════
-// Truth Engine — Genetic Weight Optimizer
-// ═══════════════════════════════════════════════
-
 import type { DrawResultRecord } from "@/types";
 import type { TruthWeights } from "./types";
 import { runWalkForwardBacktest } from "./backtest";
-import { DEFAULT_TRUTH_WEIGHTS } from "./constants";
+import { DEFAULT_TRUTH_ENGINE_SETTINGS } from "./constants";
 
 interface Genome {
   weights: TruthWeights;
@@ -13,86 +9,71 @@ interface Genome {
 }
 
 /**
- * findChampionWeights
- * Uses a genetic approach to find the weights that maximize the edge over baseline.
+ * Evolutionary weight optimizer to find the champion weights for a given market.
  */
 export function findChampionWeights(
   records: DrawResultRecord[],
-  options: {
-    iterations?: number;
-    mutationRate?: number;
-    populationSize?: number;
+  options: { 
+    iterations?: number; 
+    populationSize?: number; 
   } = {}
 ): Genome {
-  const {
-    iterations = 20,
-    mutationRate = 0.2,
-    populationSize = 10
-  } = options;
+  const iterations = options.iterations || 10;
+  const populationSize = options.populationSize || 5;
 
-  let population: Genome[] = [];
+  let population: Genome[] = Array.from({ length: populationSize }, () => ({
+    weights: mutateWeights(DEFAULT_TRUTH_ENGINE_SETTINGS.weights, 0.3),
+    edgeDelta: -1
+  }));
 
-  // 1. Initialize Population
-  for (let i = 0; i < populationSize; i++) {
-    const weights = i === 0 ? DEFAULT_TRUTH_WEIGHTS : mutateWeights(DEFAULT_TRUTH_WEIGHTS, 0.5);
-    population.push({ weights, edgeDelta: -1 });
-  }
+  for (let i = 0; i < iterations; i++) {
+    // 1. Evaluate
+    population = population.map(genome => {
+      const summary = runWalkForwardBacktest(records, {
+        settings: { ...DEFAULT_TRUTH_ENGINE_SETTINGS, weights: genome.weights },
+        testSize: 1,
+        stepSize: 5, // Faster evaluation
+        trainMinSize: 50
+      });
+      return { ...genome, edgeDelta: summary.averageDelta };
+    });
 
-  // 2. Evolution Loop
-  let champion: Genome = population[0];
-
-  for (let gen = 0; gen < iterations; gen++) {
-    // Evaluate fitness
-    for (let i = 0; i < population.length; i++) {
-      if (population[i].edgeDelta === -1) {
-        const summary = runWalkForwardBacktest(records, {
-          settings: { weights: population[i].weights }
-        });
-        population[i].edgeDelta = summary.averageDelta;
-      }
-    }
-
-    // Sort by fitness
+    // 2. Sort & Select
     population.sort((a, b) => b.edgeDelta - a.edgeDelta);
-    
-    // Track champion
-    if (population[0].edgeDelta > champion.edgeDelta) {
-      champion = { ...population[0] };
-    }
+    const parents = population.slice(0, 2);
 
-    // Culling & Reproduction (Top 50% survive)
-    const survivors = population.slice(0, Math.floor(populationSize / 2));
-    const nextGen: Genome[] = [...survivors];
-
+    // 3. Crossover & Mutate
+    const nextGen: Genome[] = [parents[0]]; // Keep best
     while (nextGen.length < populationSize) {
-      const parent = survivors[Math.floor(Math.random() * survivors.length)];
+      const childWeights = crossover(parents[0].weights, parents[1].weights);
       nextGen.push({
-        weights: mutateWeights(parent.weights, mutationRate),
+        weights: mutateWeights(childWeights, 0.1),
         edgeDelta: -1
       });
     }
-
     population = nextGen;
   }
 
-  return champion;
+  return population[0];
 }
 
-/**
- * mutateWeights
- * Randomly nudges weights to explore the search space.
- */
-function mutateWeights(base: TruthWeights, rate: number): TruthWeights {
-  const mutated = { ...base };
-  const keys = Object.keys(mutated) as (keyof TruthWeights)[];
-
-  for (const key of keys) {
+function mutateWeights(w: TruthWeights, rate: number): TruthWeights {
+  const mutated = { ...w };
+  (Object.keys(mutated) as (keyof TruthWeights)[]).forEach(k => {
     if (Math.random() < rate) {
-      // Nudge by +/- 0.5 to 1.5
-      const nudge = (Math.random() * 2 - 1) * 1.5;
-      mutated[key] = Math.max(0, Math.min(10, mutated[key] + nudge));
+      const factor = 0.5 + Math.random(); // 0.5 to 1.5
+      mutated[k] = parseFloat((mutated[k] * factor).toFixed(2));
     }
-  }
-
+  });
   return mutated;
+}
+
+function crossover(p1: TruthWeights, p2: TruthWeights): TruthWeights {
+  const child = { ...p1 };
+  (Object.keys(child) as (keyof TruthWeights)[]).forEach(k => {
+    if (Math.random() < 0.5) {
+      child[k] = p2[k];
+    }
+  });
+  return child;
 }

@@ -11,6 +11,7 @@ import type {
   TruthEngineSettings,
   DatasetFeatures,
   BaselineComparisonResult,
+  DriftReport,
 } from "./types";
 import { DEFAULT_TRUTH_ENGINE_SETTINGS, ALL_NUMBERS_00_99, SIGNAL_NAMES } from "./constants";
 import { buildFeatureMatrix, buildDatasetFeatures } from "./features";

@@ -72,9 +72,6 @@ export function runTruthPipeline(
   });
 
   // Step 6: Baseline comparison
-  const sorted = [...acceptedRecords].sort(
-    (a, b) => new Date(a.drawDate).getTime() - new Date(b.drawDate).getTime()
-  );
 
   let baselineComparison;
   if (sorted.length >= 20) {
@@ -184,7 +181,7 @@ export function runDriftRefresh(
     (a, b) => new Date(a.drawDate).getTime() - new Date(b.drawDate).getTime()
   );
   if (sorted.length < 40) {
-    return { driftScore: 0, affectedAreas: [], severity: "none", message: "ข้อมูลไม่เพียงพอ" };
+    return { driftScore: 0, volatilityIndex: 0, affectedAreas: [], severity: "none", message: "ข้อมูลไม่เพียงพอ" };
   }
   const split = Math.floor(sorted.length * 0.6);
   return detectDrift(sorted.slice(0, split), sorted.slice(split));

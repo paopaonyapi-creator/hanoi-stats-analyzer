@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { DrawType } from '@prisma/client';
-import { runBacktest } from '@/lib/truth/backtest';
+import { runWalkForwardBacktest } from '@/lib/truth/backtest';
 import { DEFAULT_TRUTH_ENGINE_SETTINGS } from '@/lib/truth/constants';
 
 export async function GET(request: Request) {
@@ -21,11 +21,10 @@ export async function GET(request: Request) {
         } catch (e) {}
     }
 
-    // Fetch pool for target market AND full records for correlation analysis
-    // We need period + deep lookback (e.g. 200) for stable backtesting
+    // Fetch pool for target market
     const allRecords = await prisma.drawResult.findMany({
       orderBy: { drawDate: 'desc' },
-      take: period + 250, // Enough for 100-day backtest + 100 historical lookback + buffers
+      take: period + 250, 
     });
 
     const targetPool = allRecords.filter(r => r.drawType === typeStr);
@@ -34,29 +33,29 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Insufficient data for simulation in this market' }, { status: 400 });
     }
 
-    // Run the professional Truth Backtest engine
-    const backtestResult = runBacktest(targetPool as any, {
+    // Run the professional Truth Walk-Forward Backtest engine
+    const backtestSummary = runWalkForwardBacktest(targetPool as any, {
       settings: { 
           ...DEFAULT_TRUTH_ENGINE_SETTINGS, 
-          weights,
-          backtestLookback: period 
+          weights
       },
-      allRecords: allRecords as any
+      testSize: 1, // Traditional one-by-one testing
+      stepSize: 1,
+      trainMinSize: targetPool.length - period
     });
 
     return NextResponse.json({
       type: typeStr,
-      period: backtestResult.totalDraws,
-      hitRate: parseFloat((backtestResult.hitRate * 100).toFixed(2)),
-      totalHits: backtestResult.hits,
-      averageDelta: backtestResult.averageDelta,
-      verdict: backtestResult.verdict,
-      results: backtestResult.results.map(r => ({
-          date: r.date,
-          actual: r.actual,
-          predicted: r.predicted.map(p => p.number),
-          isHit: r.isHit,
-          edgeDelta: r.edgeDelta
+      totalFolds: backtestSummary.totalFolds,
+      averageHitRate: parseFloat((backtestSummary.averageHitRate * 100).toFixed(2)),
+      averageBaseline: parseFloat((backtestSummary.averageBaseline * 100).toFixed(2)),
+      averageDelta: backtestSummary.averageDelta,
+      verdict: backtestSummary.verdict,
+      message: backtestSummary.message,
+      folds: backtestSummary.folds.map(f => ({
+          fold: f.foldIndex,
+          hitRate: f.hitRate,
+          delta: f.delta
       }))
     });
 

@@ -27,7 +27,6 @@ export async function GET(request: Request) {
     const championGenome = findChampionWeights(allDraws as any, {
       iterations,
       populationSize: population,
-      mutationRate: 0.25
     });
 
     return NextResponse.json({

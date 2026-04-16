@@ -193,7 +193,7 @@ export async function GET(request: Request) {
            // ── APEX AUTO-RECALIBRATION ──
            const typeRecords = allRecords.filter(r => r.drawType === src.type).slice(0, 150);
            const currentPerf = runWalkForwardBacktest(typeRecords as any, { 
-               settings: { weights: currentWeights },
+               settings: { ...DEFAULT_TRUTH_ENGINE_SETTINGS, weights: currentWeights },
                drawType: src.type
            });
            
@@ -206,8 +206,8 @@ export async function GET(request: Request) {
               if (champion.edgeDelta > currentPerf.averageDelta) {
                  await prisma.appSetting.upsert({
                    where: { key: 'scoreWeights' },
-                   update: { valueJson: champion.weights },
-                   create: { key: 'scoreWeights', valueJson: champion.weights }
+                   update: { valueJson: champion.weights as any },
+                   create: { key: 'scoreWeights', valueJson: champion.weights as any }
                  });
                  await sendTelegramMessage(formatRecalibrationAlert(src.label, currentPerf.averageDelta, champion.edgeDelta), botToken, chatId);
               }

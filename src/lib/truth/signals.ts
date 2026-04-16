@@ -179,9 +179,6 @@ export function computeAnomalyPenaltySignal(
   };
 }
 
-  };
-}
-
 export function computeVarianceStabilitySignal(f: NumberFeatures, ds: DatasetFeatures): SignalValue {
   if (ds.totalRecords < 50) {
     return notApplicable("varianceStability", "ต้องการข้อมูล 50 งวดเพื่อวิเคราะห์เสถียรภาพ");
@@ -217,6 +214,8 @@ export function computePatternStrengthSignal(f: NumberFeatures, ds: DatasetFeatu
   };
 }
 
+export function computeBayesianBiasSignal(f: NumberFeatures): SignalValue {
+  const normalized = clamp01(f.recurrenceRate);
   return {
     name: "bayesianBias",
     raw: f.recurrenceRate,
@@ -227,6 +226,8 @@ export function computePatternStrengthSignal(f: NumberFeatures, ds: DatasetFeatu
   };
 }
 
+export function computeMarketCorrelationSignal(f: NumberFeatures): SignalValue {
+  const normalized = clamp01(f.marketCorrelationScore / 100);
   return {
     name: "marketCorrelation",
     raw: f.marketCorrelationScore,
@@ -254,6 +255,20 @@ export function computeMomentumSignal(
         confidence: 0.8,
         explanation: `แรงส่งของตัวเลข (Momentum): ${m.compositeScore.toFixed(2)}×`,
         applicable: m.compositeScore > 1.0,
+    };
+}
+
+export function computeInsufficientDataPenaltySignal(ds: DatasetFeatures): SignalValue {
+    const penalty = ds.totalRecords < 30 ? 1 : ds.totalRecords < 60 ? 0.5 : 0;
+    return {
+        name: "insufficientDataPenalty",
+        raw: penalty,
+        normalized: penalty,
+        confidence: 1,
+        explanation: penalty > 0 
+            ? `จุดโทษจากปริมาณข้อมูลน้อย (${ds.totalRecords} งวด)` 
+            : "ปริมาณข้อมูลเพียงพอสำหรับการวิเคราะห์",
+        applicable: penalty > 0,
     };
 }
 
