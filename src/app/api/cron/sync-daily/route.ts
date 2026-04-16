@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient, DrawType } from "@prisma/client";
+import { DrawType } from "@prisma/client";
 import { 
   sendTelegramMessage, 
   formatResultForTelegram, 
@@ -7,12 +7,11 @@ import {
   formatRecalibrationAlert,
   formatSentinelAlert 
 } from "@/lib/services/telegram";
+import { prisma } from "@/lib/prisma";
 import { runWalkForwardBacktest } from "@/lib/truth/backtest";
 import { findChampionWeights } from "@/lib/truth/optimizer";
 import { detectGlobalDrift } from "@/lib/truth/drift";
 import { DEFAULT_TRUTH_ENGINE_SETTINGS } from "@/lib/truth/constants";
-
-const prisma = new PrismaClient();
 
 const SOURCES = [
   { type: "SPECIAL" as DrawType, slug: "xsthm", time: "17:05", label: "ฮานอยพิเศษ" },
@@ -22,6 +21,70 @@ const SOURCES = [
 
 const DELAY_MS = 1000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+type TelegramBotSettings = {
+  botToken?: string;
+  token?: string;
+  chatId?: string;
+};
+
+async function getTelegramBotSettings() {
+  const tgSetting = await prisma.appSetting.findUnique({
+    where: { key: "telegram_bot_settings" },
+  });
+  const settings = (tgSetting?.valueJson as TelegramBotSettings | null) ?? null;
+
+  return {
+    botToken: settings?.botToken || settings?.token || "",
+    chatId: settings?.chatId || "",
+  };
+}
+
+async function sendDailySyncTelegramSummary(syncedCount: number) {
+  if (syncedCount <= 0) {
+    return;
+  }
+
+  try {
+    const { botToken, chatId } = await getTelegramBotSettings();
+
+    if (!botToken || !chatId) {
+      return;
+    }
+
+    const today = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Bangkok",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }).format(new Date());
+
+    const text = [
+      "🔄 <b>Daily Sync Complete!</b>",
+      "",
+      `📊 Synced: ${syncedCount} new records`,
+      `📅 Date: ${today}`,
+      "🎯 Markets: SPECIAL, NORMAL, VIP",
+      "",
+      "<i>Hanoi Intelligence Oracle</i>",
+    ].join("\n");
+
+    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: "HTML",
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (error) {
+    console.error("Failed to send daily sync summary to Telegram:", error);
+  }
+}
 
 async function fetchHtml(url: string, retries: number = 3): Promise<string> {
   for (let i = 0; i < retries; i++) {
@@ -101,8 +164,7 @@ export async function POST(request: Request) {
   const body = await request.json();
   
   if (body.setup_webhook) {
-    const tgSetting = await prisma.appSetting.findUnique({ where: { key: 'telegram_bot_settings' } });
-    const { botToken } = (tgSetting?.valueJson as any) || {};
+    const { botToken } = await getTelegramBotSettings();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || body.url;
     
     if (botToken && appUrl) {
@@ -116,8 +178,7 @@ export async function POST(request: Request) {
   }
 
   if (body.test) {
-    const tgSetting = await prisma.appSetting.findUnique({ where: { key: 'telegram_bot_settings' } });
-    const { botToken, chatId } = (tgSetting?.valueJson as any) || {};
+    const { botToken, chatId } = await getTelegramBotSettings();
     if (botToken && chatId) {
       await sendTelegramMessage("✅ <b>Test Connection Success!</b>\nYour Telegram Bot is now linked with Hanoi Intelligence Platform.", botToken, chatId);
       return NextResponse.json({ success: true });
@@ -135,8 +196,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const tgSetting = await prisma.appSetting.findUnique({ where: { key: 'telegram_bot_settings' } });
-    const { botToken, chatId } = (tgSetting?.valueJson as any) || {};
+    const { botToken, chatId } = await getTelegramBotSettings();
 
     const weightSetting = await prisma.appSetting.findUnique({ where: { key: 'scoreWeights' } });
     const currentWeights = (weightSetting?.valueJson as any) || DEFAULT_TRUTH_ENGINE_SETTINGS.weights;
@@ -252,6 +312,8 @@ export async function GET(request: Request) {
             chatId
         );
     }
+
+    await sendDailySyncTelegramSummary(totalInserted);
 
     return NextResponse.json({ success: true, message: `Apex Sync complete. ${totalInserted} records.`, logs });
   } catch (error: any) {

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
+import { SwRegister } from "@/components/pwa/sw-register";
 
 export const metadata: Metadata = {
   title: "Hanoi Stats Analyzer — เครื่องมือวิเคราะห์ข้อมูลเชิงสถิติ",
@@ -33,6 +34,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <SwRegister />
         <AppShell>{children}</AppShell>
       </body>
     </html>

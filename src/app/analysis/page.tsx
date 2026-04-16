@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
@@ -204,7 +205,12 @@ function AnalysisPageInner() {
               <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)]">
                 <div className="flex items-center gap-4">
                   <span className="text-[10px] font-black text-[var(--text-muted)] w-4">#{idx + 1}</span>
-                  <span className="text-lg font-black text-white">{item.value}</span>
+                  <Link
+                    href={`/analysis/number/${item.value}`}
+                    className="text-lg font-black text-white transition-colors hover:text-[var(--accent-violet)]"
+                  >
+                    {item.value}
+                  </Link>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
