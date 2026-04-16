@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildAnalysisSummary } from "@/lib/stats/analysis";
 import type { DrawResultRecord } from "@/types";
+import { runWalkForwardBacktest } from "@/lib/truth/backtest";
+import { 
+    calculateExpectedValue, 
+    calculateKellyCriterion, 
+    runMonteCarloSimulation 
+} from "@/lib/truth/risk";
+import { DEFAULT_TRUTH_ENGINE_SETTINGS } from "@/lib/truth/constants";
 
 // GET /api/analysis/summary
 export async function GET(req: NextRequest) {
@@ -43,7 +50,32 @@ export async function GET(req: NextRequest) {
       updatedAt: r.updatedAt.toISOString(),
     }));
 
-    const summary = buildAnalysisSummary(plainRecords);
+    const summary = buildAnalysisSummary(plainRecords) as any;
+
+    // ── INTEGRATE RISK INTELLIGENCE ──
+    if (plainRecords.length >= 40) {
+        const backtest = runWalkForwardBacktest(plainRecords, {
+            settings: DEFAULT_TRUTH_ENGINE_SETTINGS,
+            drawType: drawType || 'ALL'
+        });
+        
+        const winProb = backtest.averageHitRate;
+        const ev = calculateExpectedValue(winProb);
+        const kelly = calculateKellyCriterion(winProb);
+        const monteCarlo = runMonteCarloSimulation(winProb);
+
+        summary.riskIntelligence = {
+            ev,
+            kellyStake: kelly,
+            backtestDelta: backtest.averageDelta,
+            backtestVerdict: backtest.verdict,
+            monteCarlo: {
+                maxDrawdown: monteCarlo.maxDrawdown,
+                probOfLoss: monteCarlo.probabilityOfLoss,
+                medianReturn: monteCarlo.medianReturn
+            }
+        };
+    }
 
     return NextResponse.json(summary);
   } catch (error: any) {

@@ -1,14 +1,6 @@
 "use client";
 
-import { 
-  Radar, 
-  RadarChart, 
-  PolarGrid, 
-  PolarAngleAxis, 
-  PolarRadiusAxis, 
-  ResponsiveContainer,
-  Legend
-} from 'recharts';
+import { Activity, Zap, ShieldCheck, Database } from 'lucide-react';
 
 interface MarketRadarProps {
     data: any[];
@@ -17,52 +9,54 @@ interface MarketRadarProps {
 export function MarketRadar({ data }: MarketRadarProps) {
     if (!data || data.length === 0) return null;
 
-    // Transform data for Radar (3 axes: Energy, Accuracy, Integrity)
-    // We want 3 polygon layers: Special, Normal, VIP
-    const radarData = [
-        { axis: 'Energy', A: data[0].energy, B: data[1].energy, C: data[2].energy },
-        { axis: 'Accuracy', A: data[0].accuracy, B: data[1].accuracy, C: data[2].accuracy },
-        { axis: 'Integrity', A: data[0].integrity, B: data[1].integrity, C: data[2].integrity },
-        { axis: 'Density', A: data[0].density === 'HIGH' ? 95 : 60, B: data[1].density === 'HIGH' ? 95 : 60, C: data[2].density === 'HIGH' ? 95 : 60 },
-        { axis: 'Stability', A: 85, B: 90, C: 88 } // Base stability
-    ];
-
     return (
-        <div className="glass-card p-4 h-full flex flex-col">
+        <div className="glass-card p-5 h-full flex flex-col">
             <div className="flex items-center gap-2 mb-4">
-                <div className="w-1.5 h-4 bg-[var(--accent-blue)] rounded-full"></div>
-                <h3 className="text-[10px] font-bold uppercase tracking-widest text-white">Market Energy Radar</h3>
+                <Activity className="w-4 h-4 text-[var(--accent-violet)]" />
+                <h3 className="text-[10px] font-bold uppercase tracking-widest text-white whitespace-nowrap">Market Signal Breakdown</h3>
             </div>
             
-            <div className="flex-grow min-h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                        <PolarGrid stroke="rgba(255,255,255,0.05)" />
-                        <PolarAngleAxis dataKey="axis" tick={{ fill: '#6b7294', fontSize: 8 }} />
-                        <Radar
-                            name="Special"
-                            dataKey="A"
-                            stroke="#f43f5e"
-                            fill="#f43f5e"
-                            fillOpacity={0.4}
-                        />
-                        <Radar
-                            name="Normal"
-                            dataKey="B"
-                            stroke="#3b82f6"
-                            fill="#3b82f6"
-                            fillOpacity={0.3}
-                        />
-                        <Radar
-                            name="VIP"
-                            dataKey="C"
-                            stroke="#8b5cf6"
-                            fill="#8b5cf6"
-                            fillOpacity={0.2}
-                        />
-                        <Legend wrapperStyle={{ fontSize: '8px', paddingTop: '10px' }} />
-                    </RadarChart>
-                </ResponsiveContainer>
+            <div className="grid grid-cols-1 gap-3">
+                {data.map((m, i) => {
+                    const colors = [
+                        'text-[var(--accent-rose)]',
+                        'text-[var(--accent-blue)]',
+                        'text-[var(--accent-violet)]'
+                    ];
+                    return (
+                        <div key={i} className="p-3 rounded-lg bg-[rgba(255,255,255,0.03)] border border-[var(--border-color)]">
+                            <div className="flex justify-between items-center mb-2">
+                                <span className={`text-[10px] font-black uppercase ${colors[i]}`}>{m.label}</span>
+                                <span className="text-[10px] font-bold text-white bg-[rgba(255,255,255,0.05)] px-1.5 py-0.5 rounded">
+                                    {m.density} Density
+                                </span>
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="text-center">
+                                    <div className="text-[8px] text-[var(--text-muted)] uppercase mb-1">Energy</div>
+                                    <div className="text-xs font-black text-white">{Math.round(m.energy)}%</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-[8px] text-[var(--text-muted)] uppercase mb-1">Accuracy</div>
+                                    <div className="text-xs font-black text-white">{Math.round(m.accuracy)}%</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-[8px] text-[var(--text-muted)] uppercase mb-1">Integrity</div>
+                                    <div className="text-xs font-black text-white">{Math.round(m.integrity)}%</div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            <div className="mt-auto pt-4 border-t border-[rgba(255,255,255,0.05)] flex items-center justify-between text-[8px] text-[var(--text-muted)] font-bold uppercase tracking-widest">
+                <div className="flex items-center gap-1">
+                    <Zap className="w-2.5 h-2.5 text-[var(--accent-amber)]" />
+                    <span>Signal Sync: Active</span>
+                </div>
+                <div>v{Date.now().toString().slice(-4)}</div>
             </div>
         </div>
     );

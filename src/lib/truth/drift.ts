@@ -15,11 +15,18 @@ export function detectDrift(
   if (referenceRecords.length < 20 || recentRecords.length < 10) {
     return {
       driftScore: 0,
+      volatilityIndex: 0,
       affectedAreas: [],
       severity: "none",
       message: "ข้อมูลไม่เพียงพอสำหรับตรวจ drift",
     };
   }
+
+  // Calculate Volatility Index: Shift between Very Recent (5) and Recent (20)
+  const veryRecent = recentRecords.slice(0, 5);
+  const v1 = computeDigitDistribution(veryRecent);
+  const v2 = computeDigitDistribution(recentRecords);
+  const volatilityIndex = computeDistributionShift(v1, v2);
 
   const areas: DriftArea[] = [];
 
@@ -85,7 +92,30 @@ export function detectDrift(
 
   const message = buildDriftMessage(severity, areas);
 
-  return { driftScore, affectedAreas: areas, severity, message };
+  return { driftScore, volatilityIndex, affectedAreas: areas, severity, message };
+}
+
+/**
+ * Detects if multiple markets are drifting at the same time.
+ */
+export function detectGlobalDrift(
+    marketReports: Record<string, DriftReport>
+): GlobalDriftReport {
+    const activeMarkets = Object.entries(marketReports)
+        .filter(([_, report]) => report.severity !== 'none' && report.severity !== 'low')
+        .map(([name]) => name);
+
+    const isDetected = activeMarkets.length >= 2;
+    const maxSeverity = activeMarkets.length >= 3 ? 'high' : activeMarkets.length >= 2 ? 'medium' : 'low';
+
+    return {
+        isDetected,
+        activeMarkets,
+        severity: maxSeverity as any,
+        message: isDetected 
+            ? `⚠️ SENTINEL ALERT: ระบบตรวจพบการเบี่ยงเบนข้ามตลาดใน ${activeMarkets.join(', ')}`
+            : "สภาวะตลาดโดยรวมยังคงเสถียร"
+    };
 }
 
 function buildDriftMessage(severity: DriftReport["severity"], areas: DriftArea[]): string {

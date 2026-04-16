@@ -13,9 +13,10 @@ export function buildSignalsForNumber(
   context: {
     datasetFeatures: DatasetFeatures;
     integrityReport?: IntegrityReport;
+    momentum?: Record<string, { compositeScore: number; explanation?: string }>;
   }
 ): SignalMap {
-  const { datasetFeatures, integrityReport } = context;
+  const { datasetFeatures, integrityReport, momentum } = context;
   const signals: SignalMap = {};
 
   signals[SIGNAL_NAMES.HOTNESS] = computeHotnessSignal(features, datasetFeatures);
@@ -25,6 +26,11 @@ export function buildSignalsForNumber(
   signals[SIGNAL_NAMES.WEEKDAY] = computeWeekdaySignal(features, datasetFeatures);
   signals[SIGNAL_NAMES.WINDOW_CONSISTENCY] = computeWindowConsistencySignal(features, datasetFeatures);
   signals[SIGNAL_NAMES.DIGIT_BALANCE] = computeDigitBalanceSignal(features);
+  signals[SIGNAL_NAMES.VARIANCE_STABILITY] = computeVarianceStabilitySignal(features, datasetFeatures);
+  signals[SIGNAL_NAMES.PATTERN_STRENGTH] = computePatternStrengthSignal(features, datasetFeatures);
+  signals[SIGNAL_NAMES.BAYESIAN_BIAS] = computeBayesianBiasSignal(features);
+  signals[SIGNAL_NAMES.MARKET_CORRELATION] = computeMarketCorrelationSignal(features);
+  signals[SIGNAL_NAMES.MOMENTUM_ACCELERATION] = computeMomentumSignal(features.number, momentum);
   signals[SIGNAL_NAMES.ANOMALY_PENALTY] = computeAnomalyPenaltySignal(features, integrityReport);
   signals[SIGNAL_NAMES.INSUFFICIENT_DATA_PENALTY] = computeInsufficientDataPenaltySignal(datasetFeatures);
 
@@ -173,31 +179,82 @@ export function computeAnomalyPenaltySignal(
   };
 }
 
-export function computeInsufficientDataPenaltySignal(ds: DatasetFeatures): SignalValue {
-  let penalty = 0;
-  let explanation = "";
+  };
+}
 
-  if (ds.totalRecords < 10) {
-    penalty = 1;
-    explanation = `ข้อมูลน้อยมาก (${ds.totalRecords} รายการ) — ผลวิเคราะห์ไม่น่าเชื่อถือ`;
-  } else if (ds.totalRecords < 30) {
-    penalty = 0.6;
-    explanation = `ข้อมูลจำกัด (${ds.totalRecords} รายการ) — ต้องระวังการตีความ`;
-  } else if (ds.totalRecords < 60) {
-    penalty = 0.2;
-    explanation = `ข้อมูลปานกลาง (${ds.totalRecords} รายการ)`;
-  } else {
-    explanation = `ข้อมูลเพียงพอ (${ds.totalRecords} รายการ)`;
+export function computeVarianceStabilitySignal(f: NumberFeatures, ds: DatasetFeatures): SignalValue {
+  if (ds.totalRecords < 50) {
+    return notApplicable("varianceStability", "ต้องการข้อมูล 50 งวดเพื่อวิเคราะห์เสถียรภาพ");
   }
+  // High variance = low stability. Score is inverted and normalized.
+  const normalized = clamp01(1 - (f.varianceScore / 100));
 
   return {
-    name: "insufficientDataPenalty",
-    raw: penalty,
-    normalized: penalty,
-    confidence: 1,
-    explanation,
-    applicable: penalty > 0,
+    name: "varianceStability",
+    raw: f.varianceScore,
+    normalized,
+    confidence: 0.8,
+    explanation: `ความนิ่งของรอบการออก: ${(normalized * 100).toFixed(1)}% (Variance: ${f.varianceScore.toFixed(0)})`,
+    applicable: true,
   };
+}
+
+export function computePatternStrengthSignal(f: NumberFeatures, ds: DatasetFeatures): SignalValue {
+  if (ds.totalRecords < 30) {
+    return notApplicable("patternStrength", "ข้อมูลไม่พอสำหรับ Pattern Strength");
+  }
+  // Combined signal: Entropy (low is good) + Transition
+  const entropyFactor = clamp01(1 - (f.entropyScore / 5));
+  const normalized = clamp01((entropyFactor + f.transitionSupportScore) / 2);
+
+  return {
+    name: "patternStrength",
+    raw: normalized,
+    normalized,
+    confidence: 0.7,
+    explanation: `ความซับซ้อนของก้อนตัวเลข: ${(normalized * 100).toFixed(1)}%`,
+    applicable: true,
+  };
+}
+
+  return {
+    name: "bayesianBias",
+    raw: f.recurrenceRate,
+    normalized,
+    confidence: 0.5,
+    explanation: `คะแนนปรับจูน Bayesian: ${(normalized * 100).toFixed(1)}%`,
+    applicable: true,
+  };
+}
+
+  return {
+    name: "marketCorrelation",
+    raw: f.marketCorrelationScore,
+    normalized,
+    confidence: 0.6,
+    explanation: `ความสอดคล้องข้ามตลาด: ${(normalized * 100).toFixed(1)}%`,
+    applicable: f.marketCorrelationScore > 0,
+  };
+}
+
+export function computeMomentumSignal(
+    num: string, 
+    momentum?: Record<string, { compositeScore: number }>
+): SignalValue {
+    if (!momentum || !momentum[num]) {
+        return notApplicable("momentumAcceleration", "ไม่มีข้อมูล momentum");
+    }
+    const m = momentum[num];
+    const normalized = clamp01((m.compositeScore - 1) / 2); // 1.0..3.0 => 0..1
+
+    return {
+        name: "momentumAcceleration",
+        raw: m.compositeScore,
+        normalized,
+        confidence: 0.8,
+        explanation: `แรงส่งของตัวเลข (Momentum): ${m.compositeScore.toFixed(2)}×`,
+        applicable: m.compositeScore > 1.0,
+    };
 }
 
 // ─────────────────────────────────────────────

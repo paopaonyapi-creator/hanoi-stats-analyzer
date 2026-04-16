@@ -44,10 +44,11 @@ export interface NumberFeatures {
   recurrenceRate: number;
   recencyDecayScore: number;
   windowStabilityScore: number;
-  varianceOfOccurrence: number | null;
-  weekdayAlignmentScore: number;
   digitBalanceScore: number;
   transitionSupportScore: number;
+  entropyScore: number;
+  varianceScore: number;
+  marketCorrelationScore: number;
 }
 
 export interface DatasetFeatures {
@@ -187,9 +188,17 @@ export interface DriftArea {
 
 export interface DriftReport {
   driftScore: number;
+  volatilityIndex: number; // 0..1 measuring rate of drift change
   affectedAreas: DriftArea[];
   severity: "none" | "low" | "medium" | "high";
   message: string;
+}
+
+export interface GlobalDriftReport {
+    isDetected: boolean;
+    activeMarkets: string[];
+    severity: "low" | "medium" | "high";
+    message: string;
 }
 
 // ═══════════════════════════════════════════════
@@ -220,6 +229,7 @@ export interface TruthPipelineResult {
   driftReport: DriftReport;
   realityVerdict: RealityVerdictResult;
   datasetFeatures: DatasetFeatures;
+  globalDrift?: GlobalDriftReport;
   generatedAt: string;
 }
 
@@ -252,6 +262,10 @@ export interface TruthWeights {
   digitBalance: number;
   weekdayAlignment: number;
   windowConsistency: number;
+  varianceStability: number;
+  patternStrength: number;
+  bayesianBias: number;
+  marketCorrelation: number;
 }
 
 export interface TruthPenalties {

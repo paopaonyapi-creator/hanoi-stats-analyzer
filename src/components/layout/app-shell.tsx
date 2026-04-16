@@ -13,6 +13,11 @@ import {
   Menu,
   X,
   Brain,
+  Database,
+  Calendar,
+  Tv,
+  Zap,
+  Info
 } from "lucide-react";
 import { useState } from "react";
 
@@ -30,6 +35,7 @@ const NAV_ITEMS = [
   { href: "/trend-score", label: "Trend Score", icon: TrendingUp },
   { href: "/truth", label: "Truth Engine", icon: Brain },
   { href: "/settings", label: "Notifications & ตั้งค่า", icon: Settings },
+  { href: "/manual", label: "คู่มือการใช้งาน", icon: Info },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

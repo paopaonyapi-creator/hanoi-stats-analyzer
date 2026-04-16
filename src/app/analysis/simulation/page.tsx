@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LoadingState } from "@/components/common/loading-state";
 import { ChartCard } from "@/components/common/chart-card";
@@ -15,38 +15,57 @@ import {
     Info,
     Trophy,
     Save,
-    Sparkles
+    Sparkles,
+    Activity,
+    ShieldCheck,
+    BarChart3,
+    ArrowUpRight
 } from "lucide-react";
-import { 
-    ResponsiveContainer, 
-    XAxis, 
-    YAxis, 
-    CartesianGrid, 
-    Tooltip,
-    AreaChart,
-    Area
-} from "recharts";
-import { DRAW_TYPE_LABELS } from "@/lib/constants";
+import { DEFAULT_TRUTH_ENGINE_SETTINGS } from "@/lib/truth/constants";
+
+type Pillar = "statistical" | "pattern" | "market" | "stability";
 
 export default function SimulationLabPage() {
     const [type, setType] = useState("NORMAL");
     const [period, setPeriod] = useState(30);
-    const [freqWeight, setFreqWeight] = useState(0.6);
-    const [seqWeight, setSeqWeight] = useState(0.4);
     const [loading, setLoading] = useState(false);
     const [optimizing, setOptimizing] = useState(false);
     const [data, setData] = useState<any>(null);
-    const [strategies, setStrategies] = useState<any[]>([]);
-    const [activeStrategy, setActiveStrategy] = useState<string>("custom");
-    const [optimizationData, setOptimizationData] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [applying, setApplying] = useState(false);
+
+    // Pillar-based weights (each controls a group of underlying Truth weights)
+    const [pillars, setPillars] = useState<Record<Pillar, number>>({
+        statistical: 1.0,
+        pattern: 1.0,
+        market: 1.0,
+        stability: 1.0
+    });
+
+    const computeFinalWeights = useCallback(() => {
+        const base = DEFAULT_TRUTH_ENGINE_SETTINGS.weights;
+        return {
+            frequencyAllTime: base.frequencyAllTime * pillars.statistical,
+            frequencyRecent: base.frequencyRecent * pillars.statistical,
+            recencyDecay: base.recencyDecay * pillars.statistical,
+            varianceStability: base.varianceStability * pillars.statistical,
+            transition: base.transition * pillars.pattern,
+            patternStrength: base.patternStrength * pillars.pattern,
+            windowConsistency: base.windowConsistency * pillars.pattern,
+            marketCorrelation: base.marketCorrelation * pillars.market,
+            bayesianBias: base.bayesianBias * pillars.market,
+            weekdayAlignment: base.weekdayAlignment * pillars.market,
+            gapReturn: base.gapReturn * pillars.stability,
+            digitBalance: base.digitBalance * pillars.stability,
+        };
+    }, [pillars]);
 
     const runSimulation = async () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`/api/predict/backtest?type=${type}&period=${period}&freqWeight=${freqWeight}&seqWeight=${seqWeight}`);
+            const weights = computeFinalWeights();
+            const res = await fetch(`/api/predict/backtest?type=${type}&period=${period}&weights=${JSON.stringify(weights)}`);
             const d = await res.json();
             if (d.error) setError(d.error);
             else setData(d);
@@ -57,206 +76,138 @@ export default function SimulationLabPage() {
         }
     };
 
-    const handleOptimize = async () => {
-        setOptimizing(true);
-        setError(null);
-        try {
-            const res = await fetch(`/api/predict/optimize?type=${type}&period=${period}`);
-            const d = await res.json();
-            if (d.error) setError(d.error);
-            else {
-                setOptimizationData(d);
-                setFreqWeight(d.champion.freqWeight);
-                setSeqWeight(d.champion.seqWeight);
-                runSimulation();
-            }
-        } catch (e: any) {
-            setError(e.message);
-        } finally {
-            setOptimizing(false);
-        }
-    };
-
     const handleApplySetttings = async () => {
-        if (!optimizationData) return;
         setApplying(true);
         try {
-            await fetch("/api/settings", {
+            const weights = computeFinalWeights();
+            const res = await fetch("/api/settings", {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     key: "scoreWeights",
-                    valueJson: {
-                        allTime: optimizationData.champion.freqWeight * 5,
-                        recent: optimizationData.champion.freqWeight * 3,
-                        gap: optimizationData.champion.seqWeight * 4,
-                        transition: optimizationData.champion.seqWeight * 4,
-                        digitBalance: 1,
-                        repeat: 1,
-                        weekday: 1
-                    },
+                    valueJson: weights,
                 }),
             });
-            alert("บันทึกการตั้งค่าสำเร็จเป็น Champion Weights แล้ว!");
-        } catch (e) {
-            alert("เกิดข้อผิดพลาดในการบันทึก");
+            const d = await res.json();
+            if (d.error) throw new Error(d.error);
+            alert("บันทึกน้ำหนักชุดนี้เข้าสู่ระบบหลัก (Apex Engine) เรียบร้อยแล้ว!");
+        } catch (e: any) {
+            alert("Error: " + e.message);
         } finally {
             setApplying(false);
         }
     };
 
     useEffect(() => {
-        fetch("/api/predict/strategies").then(r => r.json()).then(setStrategies);
         runSimulation();
-    }, []);
+    }, [type, period]);
 
-    const handleStrategyChange = (sid: string) => {
-        setActiveStrategy(sid);
-        if (sid === "custom") return;
-        const strategy = strategies.find(s => s.id === sid);
-        if (strategy) {
-            setFreqWeight(strategy.freqWeight);
-            setSeqWeight(strategy.seqWeight);
-        }
-    };
-
-    let cumulativeHits = 0;
-    const chartData = data?.results.map((r: any, idx: number) => {
-        if (r.isHit) cumulativeHits++;
-        return {
-            date: new Date(r.date).toLocaleDateString("th-TH", { day: '2-digit', month: 'short' }),
-            accuracy: parseFloat(((cumulativeHits / (idx + 1)) * 100).toFixed(1)),
-            hit: r.isHit ? 100 : 0
-        };
-    }) || [];
+    const results = data?.results || [];
 
     return (
-        <div className="animate-fade-in">
-            <PageHeader 
-                title="AI Simulation Lab" 
-                description="ห้องทดลองอัลกอริทึม - ปรับจูนน้ำหนักเพื่อหาแนวทางที่แม่นยำที่สุด"
-            />
+        <div className="animate-slide-up">
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                   <h1 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-neon mb-2">
+                     AI Simulation Lab
+                   </h1>
+                   <p className="text-[var(--text-secondary)] text-sm">
+                     ห้องทดลองอัลกอริทึม Apex v2.1 — จำลองเหตุการณ์ย้อนหลังเพื่อหาจุดสร้างกำไรสูงสุด
+                   </p>
+                </div>
+                <div className="hidden md:flex items-center gap-2 bg-[rgba(236,72,153,0.1)] px-3 py-1.5 rounded-lg border border-[rgba(236,72,153,0.2)]">
+                    <Sparkles className="w-4 h-4 text-[var(--accent-magenta)]" />
+                    <span className="text-[10px] font-black text-white uppercase tracking-widest">Truthparagon v2.1</span>
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Control Panel */}
                 <div className="lg:col-span-1 flex flex-col gap-6">
                     <div className="glass-card p-6">
-                        <div className="flex items-center gap-2 mb-4 text-[var(--accent-blue)]">
+                        <div className="flex items-center gap-2 mb-6 text-[var(--accent-blue)]">
                             <Settings2 className="w-5 h-5" />
-                            <h3 className="text-sm font-bold uppercase tracking-wider">Parameters</h3>
+                            <h3 className="text-xs font-black uppercase tracking-widest">Engine Parameters</h3>
                         </div>
 
                         <div className="space-y-6">
                             <div>
-                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">กลยุทธ์ (Select Strategy)</label>
-                                <select 
-                                    value={activeStrategy}
-                                    onChange={(e) => handleStrategyChange(e.target.value)}
-                                    className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[var(--accent-blue)]"
-                                >
-                                    <option value="custom">Custom Parameters (Manual)</option>
-                                    {strategies.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider mb-2">Target Market</label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {["NORMAL", "SPECIAL", "VIP"].map(t => (
+                                        <button 
+                                            key={t}
+                                            onClick={() => setType(t)}
+                                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all border ${
+                                                type === t 
+                                                ? 'bg-[var(--accent-blue)] border-[var(--accent-blue)] text-white' 
+                                                : 'bg-[var(--bg-input)] border-[var(--border-color)] text-[var(--text-muted)]'
+                                            }`}
+                                        >
+                                            {t}
+                                        </button>
                                     ))}
-                                </select>
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">ประเภทหวย</label>
-                                <select 
-                                    value={type}
-                                    onChange={(e) => setType(e.target.value)}
-                                    className="w-full bg-[var(--bg-input)] border border-[var(--border-color)] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[var(--accent-blue)]"
-                                >
-                                    <option value="SPECIAL">ฮานอยพิเศษ</option>
-                                    <option value="NORMAL">ฮานอยปกติ</option>
-                                    <option value="VIP">ฮานอยวีไอพี</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">ย้อนหลัง (วัน): {period}</label>
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider mb-2">History Depth: {period} Days</label>
                                 <input 
-                                    type="range" min="10" max="90" step="10"
+                                    type="range" min="10" max="100" step="10"
                                     value={period}
                                     onChange={(e) => setPeriod(parseInt(e.target.value))}
                                     className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-blue)]"
                                 />
                             </div>
 
-                            <div className="pt-4 border-t border-[var(--border-color)]">
-                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">Frequency Weight: {Math.round(freqWeight * 100)}%</label>
-                                <input 
-                                    type="range" min="0" max="1" step="0.1"
-                                    value={freqWeight}
-                                    onChange={(e) => {
-                                        const v = parseFloat(e.target.value);
-                                        setFreqWeight(v);
-                                        setSeqWeight(parseFloat((1 - v).toFixed(1)));
-                                    }}
-                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-violet)]"
-                                />
+                            <div className="pt-4 border-t border-[var(--border-color)] space-y-5">
+                                <label className="block text-[10px] font-black text-white uppercase tracking-wider mb-2">Intelligence Pillars</label>
+                                
+                                {(Object.entries(pillars) as [Pillar, number][]).map(([key, val]) => (
+                                    <div key={key}>
+                                        <div className="flex justify-between items-center mb-1.5">
+                                            <span className="text-[10px] font-bold text-[var(--text-muted)] capitalize">{key}</span>
+                                            <span className="text-[10px] font-black text-white">{Math.round(val * 100)}%</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="0" max="2.5" step="0.1"
+                                            value={val}
+                                            onChange={(e) => setPillars(p => ({ ...p, [key]: parseFloat(e.target.value) }))}
+                                            className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-violet)]"
+                                        />
+                                    </div>
+                                ))}
                             </div>
 
-                            <div>
-                                <label className="block text-xs font-medium text-[var(--text-muted)] mb-2">Sequence Weight: {Math.round(seqWeight * 100)}%</label>
-                                <input 
-                                    type="range" min="0" max="1" step="0.1"
-                                    value={seqWeight}
-                                    onChange={(e) => {
-                                        const v = parseFloat(e.target.value);
-                                        setSeqWeight(v);
-                                        setFreqWeight(parseFloat((1 - v).toFixed(1)));
-                                    }}
-                                    className="w-full h-1.5 bg-[var(--bg-input)] rounded-lg appearance-none cursor-pointer accent-[var(--accent-magenta)]"
-                                />
-                            </div>
-
-                            <div className="flex flex-col gap-2 pt-2">
+                            <div className="flex flex-col gap-2 pt-4">
                                 <button 
                                     onClick={runSimulation}
-                                    disabled={loading || optimizing}
-                                    className="w-full btn-secondary py-3 flex items-center justify-center gap-2"
+                                    disabled={loading}
+                                    className="w-full btn-primary py-3 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.3)]"
                                 >
                                     {loading ? <Zap className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                                    Run Simulation
+                                    Simulate Truth Engine
                                 </button>
-
+                                
                                 <button 
-                                    onClick={handleOptimize}
-                                    disabled={loading || optimizing}
-                                    className="w-full bg-[var(--accent-emerald)] hover:opacity-90 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+                                    onClick={handleApplySetttings}
+                                    disabled={applying || !data}
+                                    className="w-full btn-secondary py-3 flex items-center justify-center gap-2"
                                 >
-                                    {optimizing ? <Sparkles className="w-4 h-4 animate-spin" /> : <Trophy className="w-4 h-4" />}
-                                    Find Winning Weights
+                                    <Save className="w-4 h-4" />
+                                    Apply Champion Weights
                                 </button>
                             </div>
                         </div>
                     </div>
 
-                    {optimizationData && (
-                        <div className="glass-card p-4 border border-[var(--accent-emerald)] bg-[rgba(16,185,129,0.05)]">
-                            <h4 className="text-[10px] font-black text-[var(--accent-emerald)] uppercase tracking-[0.2em] mb-3">Discovery Found!</h4>
-                            <div className="text-xs text-white mb-2">Best Hit Rate: <span className="font-bold">{optimizationData.champion.hitRate}%</span></div>
-                            <div className="text-[10px] text-[var(--text-muted)] mb-4">Weights: F{Math.round(optimizationData.champion.freqWeight * 100)} / S{Math.round(optimizationData.champion.seqWeight * 100)}</div>
-                            <button 
-                                onClick={handleApplySetttings}
-                                disabled={applying}
-                                className="w-full btn-primary text-[10px] py-2 flex items-center justify-center gap-2"
-                            >
-                                <Save className="w-3 h-3" />
-                                Apply to System Settings
-                            </button>
-                        </div>
-                    )}
-
                     <div className="glass-card p-5 bg-[rgba(59,130,246,0.05)] border-l-4 border-l-[var(--accent-blue)]">
-                        <div className="flex items-center gap-2 mb-2 text-xs font-bold text-white uppercase">
-                            <Info className="w-4 h-4 text-[var(--accent-blue)]" />
-                            Lab Guidance
+                        <div className="flex items-center gap-2 mb-2 text-[10px] font-black text-white uppercase tracking-widest">
+                            <ShieldCheck className="w-4 h-4 text-[var(--accent-blue)]" />
+                            Simulation Integrity
                         </div>
                         <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
-                            อัลกอริทึมจะจำลองเหตุการณ์ทีละขั้นตอน โดยใช้ข้อมูลในอดีต ณ เวลานั้นๆ มาคำนวณเลขเด็ด 10 ตัว แล้วเช็คกับผลรางวัลจริงเพื่อสรุปเป็น Hit Rate
+                            ระบบรัน Backtest แบบ <b>Walk-Forward</b> เพื่อจำลองการทำนายในสภาวะจริง โดยไม่ใช้ข้อมูลในอนาคต ทำให้ผลลัพธ์ที่ได้ใกล้เคียงกับการใช้งานจริงที่สุด
                         </p>
                     </div>
                 </div>
@@ -273,86 +224,90 @@ export default function SimulationLabPage() {
                     {data && (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="glass-card p-6 flex flex-col items-center text-center">
-                                    <Target className="w-6 h-6 text-[var(--accent-emerald)] mb-2" />
-                                    <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Cumulative Hit Rate</span>
-                                    <div className="text-4xl font-black text-white">{data.hitRate}%</div>
-                                    <div className="text-[10px] text-[var(--accent-emerald)] font-bold mt-1">SUCCESSFUL BACKTEST</div>
+                                <div className="glass-card p-6 flex flex-col items-center text-center relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <Trophy className="w-12 h-12" />
+                                    </div>
+                                    <span className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-1">Total Hit Rate</span>
+                                    <div className="text-5xl font-black text-white mb-1">{data.hitRate}%</div>
+                                    <div className="text-[10px] font-bold text-[var(--accent-emerald)] uppercase tracking-widest">
+                                        Verdict: {data.verdict}
+                                    </div>
                                 </div>
                                 <div className="glass-card p-6 flex flex-col items-center text-center">
-                                    <History className="w-6 h-6 text-[var(--accent-blue)] mb-2" />
-                                    <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Simulated Days</span>
-                                    <div className="text-4xl font-black text-white">{data.period}</div>
-                                    <div className="text-[10px] text-[var(--text-muted)] mt-1">Days Sample Pool</div>
+                                    <BarChart3 className="w-6 h-6 text-[var(--accent-blue)] mb-2" />
+                                    <span className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-1">Avg Edge Delta</span>
+                                    <div className="text-4xl font-black text-white">+{((data.averageDelta || 0) * 100).toFixed(1)}%</div>
+                                    <div className="text-[10px] text-[var(--text-muted)] mt-1 uppercase">Over Baseline Top 10</div>
                                 </div>
                                 <div className="glass-card p-6 flex flex-col items-center text-center">
-                                    <TrendingUp className="w-6 h-6 text-[var(--accent-violet)] mb-2" />
-                                    <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Total Hits</span>
+                                    <Activity className="w-6 h-6 text-[var(--accent-violet)] mb-2" />
+                                    <span className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-1">Total Hits</span>
                                     <div className="text-4xl font-black text-white">{data.totalHits}</div>
-                                    <div className="text-[10px] text-[var(--text-muted)] mt-1">Top 10 Predictions</div>
+                                    <div className="text-[10px] text-[var(--text-muted)] mt-1 uppercase">Draw events processed</div>
                                 </div>
                             </div>
 
-                            <ChartCard title="Simulation Analysis: Cumulative Accuracy Over Time">
-                                <div className="h-[300px] mt-4">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={chartData}>
-                                            <defs>
-                                                <linearGradient id="accGradient" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.3)" />
-                                            <XAxis dataKey="date" stroke="#6b7294" fontSize={10} />
-                                            <YAxis stroke="#6b7294" fontSize={10} domain={[0, 100]} />
-                                            <Tooltip 
-                                                contentStyle={{ background: "#1a1f35", border: "1px solid #2a3154", borderRadius: "12px" }}
-                                            />
-                                            <Area 
-                                                type="monotone" 
-                                                dataKey="accuracy" 
-                                                stroke="#3b82f6" 
-                                                fillOpacity={1} 
-                                                fill="url(#accGradient)" 
-                                                strokeWidth={3}
-                                            />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
+                            <div className="glass-card p-6">
+                                <div className="flex items-center justify-between mb-4 pb-2 border-b border-[rgba(255,255,255,0.05)]">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest text-white">Performance Pulse Timeline</h3>
+                                    <Activity className="w-4 h-4 text-[var(--accent-blue)]" />
                                 </div>
-                            </ChartCard>
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-4">
+                                    {results.filter((_: any, i: number) => i % Math.ceil(results.length / 5) === 0 || i === results.length - 1).map((item: any, i: number) => (
+                                        <div key={i} className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[var(--border-color)] text-center relative hover:border-[var(--accent-blue)] transition-all">
+                                            <div className="text-[9px] text-[var(--text-muted)] font-black mb-2 uppercase tracking-tighter">{new Date(item.date).toLocaleDateString()}</div>
+                                            <div className={`text-xl font-black  ${item.isHit ? 'text-[var(--accent-emerald)]' : 'text-white'}`}>
+                                                {item.isHit ? 'HIT!' : 'MISS'}
+                                            </div>
+                                            <div className="text-[8px] text-[var(--text-muted)] font-black uppercase mt-1">Delta: {(item.edgeDelta * 100).toFixed(1)}%</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
 
                             <div className="glass-card overflow-hidden">
-                                <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-                                    <h3 className="text-sm font-bold">Simulation Detailed Logs</h3>
-                                    <span className="text-[10px] text-[var(--text-muted)] italic">Chronological Results</span>
+                                <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between bg-[rgba(255,255,255,0.02)]">
+                                    <h3 className="text-[10px] font-black uppercase tracking-widest">Detailed Event Log</h3>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-[10px] flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[var(--accent-emerald)]"></div> Hit</span>
+                                        <span className="text-[10px] flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[rgba(255,255,255,0.1)]"></div> Miss</span>
+                                    </div>
                                 </div>
-                                <div className="overflow-x-auto">
-                                    <table className="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>งวดวันที่</th>
-                                                <th>ผลจริง</th>
-                                                <th>การทำนาย</th>
-                                                <th>สถานะ</th>
+                                <div className="overflow-x-auto max-h-[500px]">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead className="sticky top-0 bg-[var(--bg-card)] z-10 shadow-sm">
+                                            <tr className="border-b border-[var(--border-color)]">
+                                                <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Draw Date</th>
+                                                <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-center">Actual</th>
+                                                <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Apex Candidate Pool</th>
+                                                <th className="py-4 px-6 text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] text-right">Edge Delta</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.results.slice().reverse().map((r: any, i: number) => (
-                                                <tr key={i} className={r.isHit ? 'bg-[rgba(16,185,129,0.1)]' : ''}>
-                                                    <td className="text-xs">{new Date(r.date).toLocaleDateString("th-TH")}</td>
-                                                    <td className="font-mono font-bold">{r.actual}</td>
-                                                    <td className="text-[10px] font-mono flex flex-wrap gap-1">
-                                                        {r.predicted.map((p: string) => (
-                                                            <span key={p} className={p === r.actual ? 'text-emerald-400 font-bold' : ''}>{p}</span>
-                                                        ))}
+                                            {results.slice().reverse().map((r: any, i: number) => (
+                                                <tr key={i} className={`border-b border-[rgba(255,255,255,0.03)] transition-colors ${r.isHit ? 'bg-[rgba(16,185,129,0.08)]' : 'hover:bg-[rgba(255,255,255,0.02)]'}`}>
+                                                    <td className="py-4 px-6 text-[10px] font-mono font-bold text-[var(--text-muted)]">{new Date(r.date).toLocaleDateString()}</td>
+                                                    <td className="py-4 px-6 text-center">
+                                                        <span className="text-xl font-black text-white">{r.actual}</span>
                                                     </td>
-                                                    <td>
-                                                        {r.isHit ? (
-                                                            <span className="text-[var(--accent-emerald)] font-bold text-xs uppercase">Hit!</span>
-                                                        ) : (
-                                                            <span className="text-[var(--text-muted)] text-xs uppercase">Miss</span>
-                                                        )}
+                                                    <td className="py-4 px-6">
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {r.predicted.map((num: string) => (
+                                                                <span key={num} className={`text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                                                                    num === r.actual 
+                                                                    ? 'bg-[var(--accent-emerald)] border-[var(--accent-emerald)] text-white shadow-[0_0_10px_rgba(16,185,129,0.3)]Scale-110' 
+                                                                    : 'bg-[rgba(255,255,255,0.05)] border-[rgba(255,255,255,0.1)] text-[var(--text-muted)]'
+                                                                }`}>
+                                                                    {num}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className={`py-4 px-6 text-right font-mono font-black text-xs ${
+                                                        r.edgeDelta > 0 ? 'text-[var(--accent-emerald)]' : 'text-[var(--accent-rose)]'
+                                                    }`}>
+                                                        {r.edgeDelta > 0 ? '+' : ''}{(r.edgeDelta * 100).toFixed(1)}%
                                                     </td>
                                                 </tr>
                                             ))}

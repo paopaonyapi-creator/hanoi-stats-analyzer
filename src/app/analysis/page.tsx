@@ -1,20 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-} from "recharts";
+import { useEffect, useState, useMemo } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { ChartCard } from "@/components/common/chart-card";
 import { LoadingState } from "@/components/common/loading-state";
@@ -35,10 +22,30 @@ const TOOLTIP_STYLE = {
 };
 
 export default function AnalysisPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
   const [data, setData] = useState<AnalysisSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [drawType, setDrawType] = useState("ALL");
-  const [window, setWindow] = useState(0);
+
+  // Derive state from URL or defaults
+  const drawType = useMemo(() => searchParams.get("drawType") || "ALL", [searchParams]);
+  const window = useMemo(() => parseInt(searchParams.get("window") || "0", 10), [searchParams]);
+
+  const setDrawType = (t: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (t === "ALL") params.delete("drawType");
+    else params.set("drawType", t);
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
+  const setWindow = (w: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (w === 0) params.delete("window");
+    else params.set("window", String(w));
+    router.replace(`${pathname}?${params.toString()}`);
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -103,6 +110,59 @@ export default function AnalysisPage() {
         </div>
       </div>
 
+      {/* Financial Stewardship / Risk Intelligence */}
+      {(data as any).riskIntelligence && (
+        <div className="glass-card p-6 mb-6 border-l-4 border-[var(--accent-amber)] animate-pulse-subtle">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--accent-amber)]">Financial Edge Insight</h3>
+              <p className="text-sm font-medium text-white italic opacity-80">"Risk management is the only holy grail in probability."</p>
+            </div>
+            <div className="text-right">
+              <span className={`text-[10px] font-black px-2 py-1 rounded border overflow-hidden ${
+                (data as any).riskIntelligence.ev > 0 ? "border-[var(--accent-emerald)] text-[var(--accent-emerald)] bg-[rgba(16,185,129,0.1)]" : "border-[var(--accent-rose)] text-[var(--accent-rose)] bg-[rgba(244,63,94,0.1)]"
+              }`}>
+                {(data as any).riskIntelligence.backtestVerdict}
+              </span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Expected Value (EV)</p>
+              <p className={`text-2xl font-black ${(data as any).riskIntelligence.ev > 0 ? "text-[var(--accent-emerald)]" : "text-[var(--accent-rose)]"}`}>
+                {(data as any).riskIntelligence.ev > 0 ? "+" : ""}{((data as any).riskIntelligence.ev * 100).toFixed(1)}%
+              </p>
+              <p className="text-[8px] text-[var(--text-muted)] mt-1">กำไรคาดหวังต่อ 1 หน่วยเดิมพัน</p>
+            </div>
+            
+            <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Kelly Stake (Optimum)</p>
+              <p className="text-2xl font-black text-white">{((data as any).riskIntelligence.kellyStake * 100).toFixed(1)}%</p>
+              <p className="text-[8px] text-[var(--text-muted)] mt-1">สัดส่วนเงินทุนที่แนะนำให้ลงต่อรอบ</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Max Drawdown Est.</p>
+              <p className="text-2xl font-black text-[var(--accent-rose)]">{((data as any).riskIntelligence.monteCarlo.maxDrawdown * 100).toFixed(1)}%</p>
+              <p className="text-[8px] text-[var(--text-muted)] mt-1">โอกาสการที่ทุนจะลดลงสูงสุด (จำลอง)</p>
+            </div>
+
+            <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Prob. of Bankroll Loss</p>
+              <p className="text-2xl font-black text-white">{((data as any).riskIntelligence.monteCarlo.probOfLoss * 100).toFixed(1)}%</p>
+              <p className="text-[8px] text-[var(--text-muted)] mt-1">ความเสี่ยงที่จะขาดทุนใน 30 วัน</p>
+            </div>
+          </div>
+          
+          <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
+            <p className="text-[9px] text-[var(--text-muted)] text-center font-medium">
+              Simulation basis: 1,000 Monte Carlo paths over 30 days horizon using current Backtest Edge: <b>+{((data as any).riskIntelligence.backtestDelta * 100).toFixed(2)}%</b>
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div className="stat-card">
@@ -131,142 +191,168 @@ export default function AnalysisPage() {
         </div>
       </div>
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {/* Top Last2 */}
-        <ChartCard title="เลข 2 ตัวท้ายที่พบบ่อย (Top 15)">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.topLast2.slice(0, 15)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.5)" />
-              <XAxis dataKey="value" stroke="#6b7294" fontSize={11} />
-              <YAxis stroke="#6b7294" fontSize={12} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="count" fill="#8b5cf6" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Top Last3 */}
-        <ChartCard title="เลข 3 ตัวท้ายที่พบบ่อย (Top 15)">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.topLast3.slice(0, 15)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.5)" />
-              <XAxis dataKey="value" stroke="#6b7294" fontSize={11} />
-              <YAxis stroke="#6b7294" fontSize={12} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="count" fill="#3b82f6" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-        {/* Digit Frequency */}
-        <ChartCard title="ความถี่ตัวเลข 0-9">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={data.digitFrequency}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.5)" />
-              <XAxis dataKey="value" stroke="#6b7294" fontSize={12} />
-              <YAxis stroke="#6b7294" fontSize={12} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="count" fill="#06b6d4" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Tens Frequency */}
-        <ChartCard title="ความถี่หลักสิบ">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={data.tensFrequency}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.5)" />
-              <XAxis dataKey="value" stroke="#6b7294" fontSize={12} />
-              <YAxis stroke="#6b7294" fontSize={12} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="count" fill="#f59e0b" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Units Frequency */}
-        <ChartCard title="ความถี่หลักหน่วย">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={data.unitsFrequency}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.5)" />
-              <XAxis dataKey="value" stroke="#6b7294" fontSize={12} />
-              <YAxis stroke="#6b7294" fontSize={12} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="count" fill="#10b981" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        {/* Weekday Distribution */}
-        <ChartCard title="การกระจายตามวัน">
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart
-              data={data.weekdayStats.map((w) => ({
-                name: WEEKDAY_LABELS_EN[w.weekday],
-                count: w.count,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.5)" />
-              <XAxis dataKey="name" stroke="#6b7294" fontSize={12} />
-              <YAxis stroke="#6b7294" fontSize={12} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Bar dataKey="count" fill="#f43f5e" radius={[3, 3, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        {/* Type Distribution Donut */}
-        <ChartCard title="สัดส่วนประเภท">
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={typeDistData}
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={90}
-                dataKey="value"
-                nameKey="name"
-                label={({ name, percent }) =>
-                  `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                }
-              >
-                {typeDistData.map((_, i) => (
-                  <Cell key={i} fill={typeColors[i]} />
-                ))}
-              </Pie>
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-            </PieChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Month Trend */}
-      {data.monthStats.length > 1 && (
-        <div className="mb-4">
-          <ChartCard title="แนวโน้มรายเดือน">
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={data.monthStats}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(42,49,84,0.5)" />
-                <XAxis dataKey="monthKey" stroke="#6b7294" fontSize={11} />
-                <YAxis stroke="#6b7294" fontSize={12} />
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
-                <Line
-                  type="monotone"
-                  dataKey="count"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  dot={{ fill: "#8b5cf6", r: 3 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </ChartCard>
+      {/* Rankings Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Top Last2 Ranking */}
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-[rgba(255,255,255,0.05)]">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white">Top 15: Two-Digit Frequency</h3>
+            <span className="text-[10px] text-[var(--accent-violet)] font-black uppercase">Direct Value Rank</span>
+          </div>
+          <div className="space-y-2">
+            {data.topLast2.slice(0, 15).map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)]">
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-black text-[var(--text-muted)] w-4">#{idx + 1}</span>
+                  <span className="text-lg font-black text-white">{item.value}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="text-[8px] text-[var(--text-muted)] uppercase font-bold">Total Hits</div>
+                    <div className="text-sm font-black text-white">{item.count}</div>
+                  </div>
+                  <div className="w-1.5 h-8 bg-[var(--accent-violet)] rounded-full opacity-50" 
+                       style={{ height: `${(item.count / data.topLast2[0].count) * 2}rem` }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Top Last3 Ranking */}
+        <div className="glass-card p-6">
+          <div className="flex items-center justify-between mb-4 pb-2 border-b border-[rgba(255,255,255,0.05)]">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white">Top 15: Three-Digit Frequency</h3>
+            <span className="text-[10px] text-[var(--accent-blue)] font-black uppercase">Structural Rank</span>
+          </div>
+          <div className="space-y-2">
+            {data.topLast3.slice(0, 15).map((item, idx) => (
+              <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)]">
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-black text-[var(--text-muted)] w-4">#{idx + 1}</span>
+                  <span className="text-lg font-black text-white">{item.value}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                   <div className="text-right">
+                    <div className="text-[8px] text-[var(--text-muted)] uppercase font-bold">Total Hits</div>
+                    <div className="text-sm font-black text-white">{item.count}</div>
+                  </div>
+                  <div className="w-1.5 h-8 bg-[var(--accent-blue)] rounded-full opacity-50" 
+                       style={{ height: `${(item.count / data.topLast3[0].count) * 2}rem` }}></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Component Frequency Matrix */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Digit Heatmap */}
+        <div className="glass-card p-5">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white mb-4">Digit Matrix</h3>
+            <div className="grid grid-cols-5 gap-2">
+                {data.digitFrequency.map((d, i) => {
+                    const max = Math.max(...data.digitFrequency.map(x => x.count));
+                    const op = (d.count / max) * 0.7 + 0.1;
+                    return (
+                        <div key={i} className="aspect-square flex flex-col items-center justify-center rounded-lg border border-[var(--border-color)]" style={{ backgroundColor: `rgba(6, 182, 212, ${op})` }}>
+                            <div className="text-sm font-black text-white">{d.value}</div>
+                            <div className="text-[8px] font-bold text-white opacity-60">{d.count}</div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+
+        {/* Tens Heatmap */}
+        <div className="glass-card p-5">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white mb-4">Tens Position</h3>
+            <div className="grid grid-cols-5 gap-2">
+                {data.tensFrequency.map((d, i) => {
+                    const max = Math.max(...data.tensFrequency.map(x => x.count));
+                    const op = (d.count / max) * 0.7 + 0.1;
+                    return (
+                        <div key={i} className="aspect-square flex flex-col items-center justify-center rounded-lg border border-[var(--border-color)]" style={{ backgroundColor: `rgba(245, 158, 11, ${op})` }}>
+                            <div className="text-sm font-black text-white">{d.value}</div>
+                            <div className="text-[8px] font-bold text-white opacity-60">{d.count}</div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+
+        {/* Units Heatmap */}
+        <div className="glass-card p-5">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white mb-4">Units Position</h3>
+            <div className="grid grid-cols-5 gap-2">
+                {data.unitsFrequency.map((d, i) => {
+                    const max = Math.max(...data.unitsFrequency.map(x => x.count));
+                    const op = (d.count / max) * 0.7 + 0.1;
+                    return (
+                        <div key={i} className="aspect-square flex flex-col items-center justify-center rounded-lg border border-[var(--border-color)]" style={{ backgroundColor: `rgba(16, 185, 129, ${op})` }}>
+                            <div className="text-sm font-black text-white">{d.value}</div>
+                            <div className="text-[8px] font-bold text-white opacity-60">{d.count}</div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+      </div>
+
+      {/* Temporal and Distribution Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Weekday List */}
+          <div className="glass-card p-6">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white mb-4">Temporal Concentration</h3>
+            <div className="space-y-3">
+                {data.weekdayStats.sort((a,b) => b.count - a.count).map((w, i) => (
+                    <div key={i} className="flex justify-between items-center text-sm">
+                        <span className="text-[var(--text-muted)] font-medium">{WEEKDAY_LABELS_EN[w.weekday]}</span>
+                        <div className="flex items-center gap-3">
+                            <span className="font-bold text-white">{w.count} hits</span>
+                            <div className="w-24 h-1 bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
+                                <div className="h-full bg-[var(--accent-rose)]" style={{ width: `${(w.count / (data.totalRecords/7)) * 100}%` }}></div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Type Distribution Banners */}
+          <div className="glass-card p-6">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-white mb-4">Market Volume Distribution</h3>
+            <div className="grid grid-cols-1 gap-3">
+                {typeDistData.map((type, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)]">
+                        <div className="flex items-center gap-3">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: typeColors[i] }}></div>
+                            <span className="text-xs font-bold text-white">{type.name}</span>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-sm font-black text-white">{type.value}</div>
+                            <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase">Volume</div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+          </div>
+      </div>
+
+      {/* Monthly Summary (Numerical) */}
+      {data.monthStats.length > 1 && (
+          <div className="glass-card p-6 mb-6">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-white mb-6">Monthly Historical Ingestion</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+                  {[...data.monthStats].reverse().slice(0, 16).map((m, i) => (
+                      <div key={i} className="text-center p-2 rounded bg-[var(--bg-input)]">
+                          <div className="text-[8px] text-[var(--text-muted)] font-bold mb-1">{m.monthKey}</div>
+                          <div className="text-sm font-black text-white">{m.count}</div>
+                      </div>
+                  ))}
+              </div>
+          </div>
       )}
 
       {/* Gap Analysis Table */}

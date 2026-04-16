@@ -34,30 +34,33 @@ export default function SettingsPage() {
   const [weights, setWeights] = useState<ScoreWeights>({
     ...DEFAULT_SCORE_WEIGHTS,
   });
-  const [lineToken, setLineToken] = useState("");
+  const [telegramSettings, setTelegramSettings] = useState({ token: "", chatId: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [savingToken, setSavingToken] = useState(false);
+  const [savingTelegram, setSavingTelegram] = useState(false);
+  const [testingTelegram, setTestingTelegram] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [tokenSaved, setTokenSaved] = useState(false);
+  const [telegramSaved, setTelegramSaved] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [health, setHealth] = useState<any>(null);
   const [scanning, setScanning] = useState(false);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optResult, setOptResult] = useState<any>(null);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/settings?key=scoreWeights").then(r => r.json()),
-      fetch("/api/settings?key=line_notify_token").then(r => r.json()),
+      fetch("/api/settings?key=telegram_bot_settings").then(r => r.json()),
       fetch("/api/analysis/health").then(r => r.json())
     ])
-      .then(([wData, lData, hData]) => {
+      .then(([wData, tData, hData]) => {
         if (wData.scoreWeights) {
           setWeights({ ...DEFAULT_SCORE_WEIGHTS, ...wData.scoreWeights });
         }
-        if (lData?.valueJson?.token) {
-          setLineToken(lData.valueJson.token);
+        if (tData?.valueJson?.token) {
+          setTelegramSettings(tData.valueJson);
         }
         if (hData.integrityScore !== undefined) {
            setHealth(hData);
@@ -97,22 +100,38 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveToken = async () => {
-    setSavingToken(true);
-    setTokenSaved(false);
+  const handleSaveTelegram = async () => {
+    setSavingTelegram(true);
+    setTelegramSaved(false);
     try {
       await fetch("/api/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          key: "line_notify_token",
-          valueJson: { token: lineToken },
+          key: "telegram_bot_settings",
+          valueJson: telegramSettings,
         }),
       });
-      setTokenSaved(true);
-      setTimeout(() => setTokenSaved(false), 3000);
+      setTelegramSaved(true);
+      setTimeout(() => setTelegramSaved(false), 3000);
     } catch { } finally {
-      setSavingToken(false);
+      setSavingTelegram(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTestingTelegram(true);
+    try {
+      const res = await fetch("/api/cron/sync-daily", { 
+        method: "POST", 
+        body: JSON.stringify({ test: true }) 
+      });
+      if (res.ok) alert("✅ ส่งข้อความทดสอบไปยัง Telegram สำเร็จ!");
+      else alert("❌ เกิดข้อผิดพลาดในการส่งข้อความ");
+    } catch {
+      alert("❌ ไม่สามารถเชื่อมต่อ API ได้");
+    } finally {
+      setTestingTelegram(false);
     }
   };
 
@@ -205,7 +224,7 @@ export default function SettingsPage() {
             disabled={saving}
           >
             <Save className="w-4 h-4 inline mr-1" />
-            {saving ? "กำลังบันทึก..." : saved ? "บันทึกแล้ว ✓" : "บันทึก"}
+            {saving ? "กำลังบันทึก..." : saved ? "บันทึกแล้ว ✓" : "บันทึก Manual Weights"}
           </button>
           <button
             className="btn-secondary"
@@ -217,27 +236,90 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Line Notify */}
+      {/* God-Tier Auto-Optimization */}
       <div className="glass-card p-6 mb-6">
-        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">
-          Line Notify (การแจ้งเตือน)
+        <h3 className="text-sm font-semibold text-[var(--accent-amber)] mb-4 flex items-center gap-2">
+          <Zap className="w-5 h-5" />
+          God-Tier Genetic Optimization
         </h3>
         <p className="text-xs text-[var(--text-muted)] mb-4">
-          รับการแจ้งเตือนผลหวย และ AI Prediction สดทาง Line เมื่อระบบอัปเดตข้อมูลรายวัน
+          ใช้ Genetic Algorithm จำลองหาค่าน้ำหนัก (Weights) ที่ให้ค่า Edge เหนือ Random Baseline มากที่สุดในสภาวะตลาดปัจจุบัน (ใช้เวลาประมาณ 10-30 วินาที)
         </p>
 
-        <div className="max-w-md">
-           <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider block mb-1">Line Notify Token</label>
-           <input 
-             type="password"
-             value={lineToken}
-             onChange={(e) => setLineToken(e.target.value)}
-             className="input-field mb-4"
-             placeholder="Pasted your Line Notify Token here..."
-           />
+        {optResult && (
+          <div className="mb-4 p-4 rounded-lg bg-[rgba(16,185,129,0.05)] border border-[rgba(16,185,129,0.2)]">
+            <h4 className="text-[11px] text-[var(--accent-emerald)] font-bold mb-2">🏆 Champion Weights Found</h4>
+            <div className="text-[10px] text-[var(--text-secondary)]">
+              <span className="block mb-1">🔥 <b>New Edge Delta:</b> {optResult.champion.edgeDelta}</span>
+              <p className="mt-2 text-white bg-[rgba(0,0,0,0.3)] p-2 rounded">{JSON.stringify(optResult.champion.weights, null, 2)}</p>
+            </div>
+          </div>
+        )}
+
+        <button
+          className="btn-primary w-full sm:w-auto"
+          onClick={async () => {
+            setOptimizing(true);
+            try {
+              const res = await fetch("/api/predict/optimize?period=60&iterations=15&population=10");
+              const data = await res.json();
+              if (data.champion) {
+                 setOptResult(data);
+                 setWeights(data.champion.weights);
+              }
+            } catch (err) {
+              alert("Optimization Failed");
+            } finally {
+              setOptimizing(false);
+            }
+          }}
+          disabled={optimizing}
+          style={{ background: optimizing ? "var(--bg-input)" : "var(--gradient-amber)" }}
+        >
+          {optimizing ? (
+            <span className="flex items-center gap-2"><Activity className="w-4 h-4 animate-spin" /> ค้นหา Champion Weights...</span>
+          ) : (
+            <span className="flex items-center gap-2"><Zap className="w-4 h-4" /> เริ่มกระบวนการ Genetic Evolution</span>
+          )}
+        </button>
+      </div>
+
+      {/* Telegram Bot Settings */}
+      <div className="glass-card p-6 mb-6">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">
+          Telegram Bot Optimization
+        </h3>
+        <p className="text-xs text-[var(--text-muted)] mb-6">
+          ตั้งค่าการแจ้งเตือนสถาปัตยกรรมใหม่ (Telegram Only) เพื่อรับผลรางวัลและสัญญาณ God-Tier
+        </p>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+               <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider block mb-1">Bot API Token</label>
+               <input 
+                 type="password"
+                 value={telegramSettings.token}
+                 onChange={(e) => setTelegramSettings({ ...telegramSettings, token: e.target.value })}
+                 className="input-field"
+                 placeholder="Enter Bot Token..."
+               />
+            </div>
+            <div>
+               <label className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider block mb-1">Chat ID</label>
+               <input 
+                 type="text"
+                 value={telegramSettings.chatId}
+                 onChange={(e) => setTelegramSettings({ ...telegramSettings, chatId: e.target.value })}
+                 className="input-field"
+                 placeholder="Enter Chat ID..."
+               />
+            </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
            <button 
-             onClick={handleSaveToken}
-             disabled={savingToken}
+             onClick={handleSaveTelegram}
+             disabled={savingTelegram}
              className="btn-primary"
            >
              <Save className="w-4 h-4 inline mr-1" />

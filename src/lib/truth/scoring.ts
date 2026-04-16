@@ -14,8 +14,9 @@ import type {
 } from "./types";
 import { DEFAULT_TRUTH_ENGINE_SETTINGS, ALL_NUMBERS_00_99, SIGNAL_NAMES } from "./constants";
 import { buildFeatureMatrix, buildDatasetFeatures } from "./features";
-import { buildSignalsForNumber } from "./signals";
+ import { buildSignalsForNumber } from "./signals";
 import { buildPlainLanguageExplanation } from "./explain";
+import { calculateNumericalMomentum } from "./momentum";
 
 /**
  * Build truth scores for all 00-99 numbers.
@@ -27,12 +28,14 @@ export function buildTruthScores(
     settings?: TruthEngineSettings;
     baselineDelta?: number;
     backtestHint?: number;
+    driftReport?: DriftReport;
     drawType?: string | null;
   }
 ): TruthScoreResult[] {
   const settings = options?.settings ?? DEFAULT_TRUTH_ENGINE_SETTINGS;
   const baselineDelta = options?.baselineDelta ?? 0;
   const backtestHint = options?.backtestHint ?? 0;
+  const driftReport = options?.driftReport;
 
   if (records.length === 0) {
     return ALL_NUMBERS_00_99.map((num) => ({
@@ -48,13 +51,18 @@ export function buildTruthScores(
     }));
   }
 
-  const featureMatrix = buildFeatureMatrix(records);
+  const featureMatrix = buildFeatureMatrix(records, {
+    drawType: options?.drawType,
+    allRecords: records, // For now, assume records passed here contains all we need, but usually we filter records outside.
+  });
   const datasetFeatures = buildDatasetFeatures(records);
+  const momentum = calculateNumericalMomentum(records as any);
 
   const results: TruthScoreResult[] = featureMatrix.map((features) => {
     const signalMap = buildSignalsForNumber(features, {
       datasetFeatures,
       integrityReport,
+      momentum,
     });
 
     const trendScore = calculateTrendScore(signalMap, settings);
@@ -62,7 +70,8 @@ export function buildTruthScores(
       signalMap,
       integrityReport,
       backtestHint,
-      settings
+      settings,
+      driftReport
     );
     const evidenceStrength = calculateEvidenceStrength(signalMap);
     const label = labelTruthScore(
@@ -127,6 +136,11 @@ export function calculateTrendScore(
     [SIGNAL_NAMES.WEEKDAY, w.weekdayAlignment],
     [SIGNAL_NAMES.WINDOW_CONSISTENCY, w.windowConsistency],
     [SIGNAL_NAMES.DIGIT_BALANCE, w.digitBalance],
+    [SIGNAL_NAMES.VARIANCE_STABILITY, w.varianceStability],
+    [SIGNAL_NAMES.PATTERN_STRENGTH, w.patternStrength],
+    [SIGNAL_NAMES.BAYESIAN_BIAS, w.bayesianBias],
+    [SIGNAL_NAMES.MARKET_CORRELATION, w.marketCorrelation],
+    [SIGNAL_NAMES.MOMENTUM_ACCELERATION, 1.2], // Direct bonus for momentum
   ];
 
   for (const [name, weight] of positiveSignals) {
@@ -161,7 +175,8 @@ export function calculateConfidenceScore(
   signalMap: SignalMap,
   integrityReport: IntegrityReport,
   backtestHint: number,
-  settings: TruthEngineSettings
+  settings: TruthEngineSettings,
+  driftReport?: DriftReport
 ): number {
   const cw = settings.confidenceWeights;
 
@@ -192,6 +207,13 @@ export function calculateConfidenceScore(
     backtestConsistency * cw.outOfSampleConsistency +
     integrityEffect * cw.integrity;
 
+  // Apply Sentinel Penalties (Static drift + Volatility)
+  if (driftReport) {
+    const driftPenalty = driftReport.severity === 'high' ? 0.3 : driftReport.severity === 'medium' ? 0.15 : 0;
+    const volatilityPenalty = driftReport.volatilityIndex * 0.2;
+    confidence = Math.max(0, confidence - (driftPenalty + volatilityPenalty));
+  }
+
   const totalWeight =
     cw.sampleSizeQuality +
     cw.featureAgreement +
@@ -209,8 +231,7 @@ export function calculateEvidenceStrength(signalMap: SignalMap): number {
   const applicablePositive = Object.values(signalMap).filter(
     (s) => s.applicable && s.normalized !== null && s.normalized > 0.3 && !s.name.includes("Penalty")
   );
-
-  const totalPositiveSignals = 7; // number of positive signal types
+  const totalPositiveSignals = 10; // hot, rec, gap, trans, day, window, digit, var, pat, bayes
   const strength = (applicablePositive.length / totalPositiveSignals) * 100;
   return clamp(strength, 0, 100);
 }

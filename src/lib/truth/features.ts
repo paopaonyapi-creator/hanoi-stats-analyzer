@@ -11,8 +11,13 @@ import { ALL_NUMBERS_00_99 } from "./constants";
  */
 export function buildFeatureMatrix(
   records: DrawResultRecord[],
-  options?: { currentWeekday?: number; previousLast2?: string | null }
-): NumberFeatures[] {
+  options?: { 
+    currentWeekday?: number; 
+    previousLast2?: string | null;
+    allRecords?: DrawResultRecord[];
+    drawType?: string | null;
+  }
+) {
   const sorted = [...records].sort(
     (a, b) => new Date(a.drawDate).getTime() - new Date(b.drawDate).getTime()
   );
@@ -81,6 +86,11 @@ export function buildFeatureMatrix(
     const transitionSupportScore =
       prevLast2 !== null ? computeTransitionSupport(prevLast2, num, last2Values) : 0;
 
+    // Market Correlation (Phase 4)
+    const marketCorrelationScore = options?.allRecords && options?.drawType
+      ? computeMarketCorrelation(num, options.drawType, options.allRecords)
+      : 0;
+
     return {
       number: num,
       frequencyAllTime,
@@ -93,10 +103,11 @@ export function buildFeatureMatrix(
       recurrenceRate,
       recencyDecayScore,
       windowStabilityScore,
-      varianceOfOccurrence,
-      weekdayAlignmentScore,
       digitBalanceScore,
       transitionSupportScore,
+      entropyScore: computeEntropy(indices, total),
+      varianceScore: gaps.length >= 2 ? variance(gaps) / (meanGap || 1) : 0,
+      marketCorrelationScore,
     };
   });
 }
@@ -204,4 +215,34 @@ function computeTransitionSupport(
     }
   }
   return fromCount > 0 ? transitionCount / fromCount : 0;
+}
+
+function computeEntropy(indices: number[], total: number): number {
+  if (indices.length < 2 || total === 0) return 0;
+  // Calculate relative distances as probabilities
+  const distances = [];
+  for (let i = 1; i < indices.length; i++) {
+    distances.push((indices[i] - indices[i - 1]) / total);
+  }
+  // Shannon Entropy
+  return -distances.reduce((sum, p) => sum + p * Math.log2(p + 1e-9), 0);
+}
+
+function computeMarketCorrelation(
+  num: string,
+  targetType: string,
+  allRecords: DrawResultRecord[]
+): number {
+  if (allRecords.length === 0) return 0;
+
+  // Filter for OTHER markets
+  const otherRecords = allRecords.filter(r => r.drawType !== targetType);
+  if (otherRecords.length === 0) return 0;
+
+  // Check recent cross-market appearances (last 10 total records of other markets)
+  // Higher weight if it appeared in other markets TODAY or yesterday
+  const recentOthers = otherRecords.slice(-10);
+  const matches = recentOthers.filter(r => r.last2 === num).length;
+  
+  return Math.min(1, matches / 2); // 2 matches in other markets is "max" correlation
 }

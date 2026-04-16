@@ -34,6 +34,10 @@ export const DEFAULT_TRUTH_ENGINE_SETTINGS: TruthEngineSettings = {
     digitBalance: 0.5,
     weekdayAlignment: 0.4,
     windowConsistency: 1.0,
+    varianceStability: 1.3,
+    patternStrength: 1.5,
+    bayesianBias: 1.1,
+    marketCorrelation: 1.2,
   },
 
   penalties: {
@@ -138,6 +142,11 @@ export const SIGNAL_NAMES = {
   WEEKDAY: "weekday",
   WINDOW_CONSISTENCY: "windowConsistency",
   DIGIT_BALANCE: "digitBalance",
+  VARIANCE_STABILITY: "varianceStability",
+  PATTERN_STRENGTH: "patternStrength",
+  BAYESIAN_BIAS: "bayesianBias",
+  MARKET_CORRELATION: "marketCorrelation",
+  MOMENTUM_ACCELERATION: "momentumAcceleration",
   ANOMALY_PENALTY: "anomalyPenalty",
   INSUFFICIENT_DATA_PENALTY: "insufficientDataPenalty",
 } as const;

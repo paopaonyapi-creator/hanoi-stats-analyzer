@@ -43,9 +43,31 @@ export function runTruthPipeline(
   // Step 2: Quarantine
   const acceptedRecords = quarantineBrokenRows(records, integrityReport);
 
-  // Step 3-4-5: Features + Signals + Truth Scores
+  const sorted = [...acceptedRecords].sort(
+    (a, b) => new Date(a.drawDate).getTime() - new Date(b.drawDate).getTime()
+  );
+
+  // Step 3: Drift detection (Harden early for scoring)
+  let driftReport;
+  if (sorted.length >= 40) {
+    const splitPoint = Math.floor(sorted.length * 0.6);
+    const referenceRecords = sorted.slice(0, splitPoint);
+    const recentRecords = sorted.slice(splitPoint);
+    driftReport = detectDrift(referenceRecords, recentRecords);
+  } else {
+    driftReport = { 
+        driftScore: 0, 
+        volatilityIndex: 0,
+        affectedAreas: [], 
+        severity: "none" as const, 
+        message: "ข้อมูลไม่เพียงพอสำหรับตรวจ drift" 
+    };
+  }
+
+  // Step 4-5-6: Features + Signals + Truth Scores
   const truthScores = buildTruthScores(acceptedRecords, integrityReport, {
     settings,
+    driftReport,
     drawType: options?.drawType,
   });
 
@@ -81,17 +103,6 @@ export function runTruthPipeline(
     topK: settings.baselineTopK,
   });
 
-  // Step 8: Drift detection
-  let driftReport;
-  if (sorted.length >= 40) {
-    const splitPoint = Math.floor(sorted.length * 0.6);
-    const referenceRecords = sorted.slice(0, splitPoint);
-    const recentRecords = sorted.slice(splitPoint);
-    driftReport = detectDrift(referenceRecords, recentRecords);
-  } else {
-    driftReport = { driftScore: 0, affectedAreas: [], severity: "none" as const, message: "ข้อมูลไม่เพียงพอสำหรับตรวจ drift" };
-  }
-
   // Step 9: Reality verdict
   const realityVerdict = buildRealityVerdict({
     integrityReport,
@@ -101,9 +112,10 @@ export function runTruthPipeline(
     settings,
   });
 
-  // Update truth scores labels based on overall baseline delta
+  // Re-build truth scores with hints if necessary (keeping drift context)
   const updatedScores = buildTruthScores(acceptedRecords, integrityReport, {
     settings,
+    driftReport,
     baselineDelta: baselineComparison.delta,
     backtestHint: backtestSummary.averageDelta,
     drawType: options?.drawType,
