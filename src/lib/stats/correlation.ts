@@ -15,7 +15,8 @@ export function analyzeCrossMarketCorrelation(records: DrawResultRecord[]): Corr
     // 1. Group records by date
     const byDate: Record<string, any> = {};
     records.forEach(r => {
-        const date = r.drawDate.slice(0, 10);
+        const dateString = typeof r.drawDate === 'string' ? r.drawDate : new Date(r.drawDate).toISOString();
+        const date = dateString.slice(0, 10);
         if (!byDate[date]) byDate[date] = { SPECIAL: null, NORMAL: null, VIP: null };
         byDate[date][r.drawType] = r;
     });
