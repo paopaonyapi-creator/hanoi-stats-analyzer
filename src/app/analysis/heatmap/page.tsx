@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LoadingState } from "@/components/common/loading-state";
 import { Info, TrendingUp, Hash } from "lucide-react";
-import { DRAW_TYPE_LABELS } from "@/lib/constants";
 
 interface HeatmapData {
   number: string;
@@ -13,32 +12,46 @@ interface HeatmapData {
   hits: number;
 }
 
+interface PredictionItem {
+  number: string;
+  confidence: number;
+  signals: string[];
+}
+
+interface PredictResponse {
+  predictions: PredictionItem[];
+}
+
 export default function SignalHeatmapPage() {
   const [data, setData] = useState<HeatmapData[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawType, setDrawType] = useState("ALL");
 
-  useEffect(() => {
+  const fetchHeatmapData = async (currentDrawType: string) => {
     setLoading(true);
     // Fetch prediction data for all numbers to build the heatmap
     // We'll reuse the logic from trend-score or similar
-    fetch(`/api/predict?type=${drawType}`)
-      .then((res) => res.json())
-      .then((d) => {
-        const numbers = Array.from({ length: 100 }, (_, i) => {
-          const num = i.toString().padStart(2, "0");
-          const pred = d.predictions.find((p: any) => p.number === num);
-          return {
-            number: num,
-            score: pred ? pred.confidence : 0,
-            gap: 0, // In a real app, we'd fetch this too
-            hits: pred ? parseInt(pred.reasons[0]?.match(/\d+/)?.[0] || "0") : 0,
-          };
-        });
-        setData(numbers);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    try {
+      const res = await fetch(`/api/predict?type=${currentDrawType}`);
+      const payload: PredictResponse = await res.json();
+      const numbers = Array.from({ length: 100 }, (_, i) => {
+        const num = i.toString().padStart(2, "0");
+        const pred = payload.predictions.find((item) => item.number === num);
+        return {
+          number: num,
+          score: pred?.confidence ?? 0,
+          gap: 0, // In a real app, we'd fetch this too
+          hits: pred?.signals.length ?? 0,
+        };
+      });
+      setData(numbers);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchHeatmapData(drawType);
   }, [drawType]);
 
   const getColor = (score: number) => {

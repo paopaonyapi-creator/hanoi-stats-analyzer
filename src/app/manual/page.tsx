@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 "use client";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -7,11 +8,8 @@ import {
   Target, 
   Activity, 
   Tv, 
-  Settings, 
   ShieldCheck, 
-  Info,
-  ChevronRight,
-  Sparkles
+  ChevronRight
 } from "lucide-react";
 
 export default function ManualPage() {

@@ -223,12 +223,18 @@ body {
   background: var(--gradient-primary);
   color: white;
   border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
   padding: 0.625rem 1.25rem;
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.875rem;
+  min-height: 44px;
 }
 
 .btn-primary:hover {
@@ -241,12 +247,18 @@ body {
   background: var(--bg-card);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
   padding: 0.625rem 1.25rem;
   border-radius: var(--radius-md);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.875rem;
+  min-height: 44px;
 }
 
 .btn-secondary:hover {
@@ -258,12 +270,18 @@ body {
   background: rgba(244, 63, 94, 0.15);
   color: var(--accent-rose);
   border: 1px solid rgba(244, 63, 94, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-decoration: none;
   padding: 0.625rem 1.25rem;
   border-radius: var(--radius-md);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.875rem;
+  min-height: 44px;
 }
 
 .btn-danger:hover {
@@ -402,6 +420,7 @@ body {
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
+    width: min(84vw, 320px);
   }
 
   .sidebar.open {
@@ -410,6 +429,10 @@ body {
 
   .main-content {
     margin-left: 0 !important;
+  }
+
+  body {
+    background-attachment: scroll;
   }
 }
 

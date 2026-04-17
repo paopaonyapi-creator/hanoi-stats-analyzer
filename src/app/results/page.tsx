@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Search, Filter, ChevronLeft, ChevronRight, Eye, Download } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Eye, Download } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LoadingState } from "@/components/common/loading-state";
 import { EmptyState } from "@/components/common/empty-state";
@@ -18,7 +18,7 @@ export default function ResultsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [last2, setLast2] = useState("");
-  const [last3, setLast3] = useState("");
+  const last3 = "";
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("drawDate");
@@ -159,7 +159,7 @@ export default function ResultsPage() {
         />
       ) : (
         <>
-          <div className="glass-card overflow-hidden mb-4">
+          <div className="mb-4 hidden overflow-hidden md:block glass-card">
             <div className="overflow-x-auto">
               <table className="data-table">
                 <thead>
@@ -196,7 +196,7 @@ export default function ResultsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {results.data.map((r: any) => (
+                  {results.data.map((r) => (
                     <tr key={r.id}>
                       <td>
                         {new Date(r.drawDate).toLocaleDateString("th-TH", {
@@ -234,9 +234,51 @@ export default function ResultsPage() {
               </table>
             </div>
           </div>
+          <div className="mb-4 grid gap-3 md:hidden">
+            {results.data.map((r) => (
+              <div key={r.id} className="glass-card p-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="mb-2 text-xs text-[var(--text-muted)]">
+                      {new Date(r.drawDate).toLocaleDateString("th-TH", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </div>
+                    <span className={`badge badge-${r.drawType.toLowerCase()}`}>
+                      {DRAW_TYPE_LABELS[r.drawType as DrawType]}
+                    </span>
+                  </div>
+                  <Link
+                    href={`/results/${r.id}`}
+                    className="btn-secondary px-3 py-2 text-xs"
+                  >
+                    <Eye className="w-3 h-3" />
+                    ดู
+                  </Link>
+                </div>
+                <div className="mb-4 font-mono text-3xl font-black text-white">{r.resultDigits}</div>
+                <div className="grid grid-cols-3 gap-3 text-xs">
+                  <div className="rounded-xl bg-[var(--bg-input)] p-3">
+                    <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">เวลา</div>
+                    <div className="font-semibold text-[var(--text-secondary)]">{r.drawTime || "-"}</div>
+                  </div>
+                  <div className="rounded-xl bg-[var(--bg-input)] p-3">
+                    <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">2 ตัวท้าย</div>
+                    <div className="font-mono font-bold text-[var(--accent-amber)]">{r.last2}</div>
+                  </div>
+                  <div className="rounded-xl bg-[var(--bg-input)] p-3">
+                    <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">3 ตัวท้าย</div>
+                    <div className="font-mono font-bold text-[var(--accent-violet)]">{r.last3}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
           {/* Pagination */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <p className="text-sm text-[var(--text-muted)]">
               แสดง {(results.page - 1) * results.pageSize + 1}–
               {Math.min(results.page * results.pageSize, results.total)} จาก{" "}

@@ -1,10 +1,11 @@
 "use client";
 
 import { Eye, CheckCircle, AlertTriangle, XOctagon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { RealityVerdictResult } from "@/lib/truth/types";
 import { VERDICT_LABELS } from "@/lib/truth/constants";
 
-const verdictConfig: Record<string, { color: string; icon: any; bg: string }> = {
+const verdictConfig: Record<string, { color: string; icon: LucideIcon; bg: string }> = {
   STRONG: { color: "#10b981", icon: CheckCircle, bg: "rgba(16,185,129,0.1)" },
   MODERATE: { color: "#3b82f6", icon: Eye, bg: "rgba(59,130,246,0.1)" },
   WEAK: { color: "#f59e0b", icon: AlertTriangle, bg: "rgba(245,158,11,0.1)" },

@@ -3,14 +3,14 @@
 // ═══════════════════════════════════════════════
 
 import { describe, it, expect } from "vitest";
-import { computeIntegrityReport, scoreIntegrityIssues, getIntegrityLevel, validateChronology, detectDuplicateRecords, detectSuspiciousRepeats } from "../src/lib/truth/integrity";
+import { computeIntegrityReport, scoreIntegrityIssues, getIntegrityLevel, detectDuplicateRecords, detectSuspiciousRepeats } from "../src/lib/truth/integrity";
 import { buildFeatureMatrix, buildDatasetFeatures } from "../src/lib/truth/features";
 import { computeHotnessSignal, buildSignalsForNumber } from "../src/lib/truth/signals";
-import { calculateTrendScore, labelTruthScore, buildTruthScores, calculateConfidenceScore, calculateEvidenceStrength } from "../src/lib/truth/scoring";
-import { runWalkForwardBacktest, buildBacktestFolds, evaluateFold, summarizeBacktestResults } from "../src/lib/truth/backtest";
+import { labelTruthScore, buildTruthScores } from "../src/lib/truth/scoring";
+import { runWalkForwardBacktest, buildBacktestFolds } from "../src/lib/truth/backtest";
 import { detectDrift, compareDistributionShift } from "../src/lib/truth/drift";
 import { buildRealityVerdict, shouldShowNoReliableSignalBanner } from "../src/lib/truth/verdict";
-import { DEFAULT_TRUTH_ENGINE_SETTINGS, ALL_NUMBERS_00_99 } from "../src/lib/truth/constants";
+import { DEFAULT_TRUTH_ENGINE_SETTINGS, SIGNAL_NAMES } from "../src/lib/truth/constants";
 import type { DrawResultRecord } from "../src/types";
 
 // ─────────────────────────────────────────────
@@ -51,7 +51,7 @@ function makeDeterministicRecords(count: number): DrawResultRecord[] {
     return {
       id: `det-${i}`,
       drawDate: date.toISOString(),
-      drawType: "NORMAL" as any,
+      drawType: "NORMAL",
       drawTime: "18:15",
       resultRaw: digits,
       resultDigits: digits,
@@ -228,7 +228,7 @@ describe("Signal Engine", () => {
     const ds = buildDatasetFeatures(records);
     const signals = buildSignalsForNumber(features, { datasetFeatures: ds });
 
-    expect(Object.keys(signals).length).toBe(9);
+    expect(Object.keys(signals).length).toBe(Object.keys(SIGNAL_NAMES).length);
     expect(signals.hotness).toBeDefined();
     expect(signals.recency).toBeDefined();
     expect(signals.anomalyPenalty).toBeDefined();

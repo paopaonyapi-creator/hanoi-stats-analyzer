@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useMemo } from 'react';
-import { Activity, Clock, ShieldAlert } from 'lucide-react';
+import React, { useMemo } from "react";
+import { Activity, Clock, ShieldAlert } from "lucide-react";
+import type { DrawResultRecord } from "@/types";
 
 interface GapMatrixProps {
-  records: any[];
+  records: DrawResultRecord[];
   title?: string;
 }
 
 export const NumericalGapMatrix: React.FC<GapMatrixProps> = ({ records, title = "Numerical Gap Matrix (00-99)" }) => {
   const gapData = useMemo(() => {
     const gaps = new Array(100).fill(-1);
-    const lastSeen = new Array(100).fill(null);
     
     // Sort records descending (latest first)
     const sorted = [...records].sort((a, b) => new Date(b.drawDate).getTime() - new Date(a.drawDate).getTime());

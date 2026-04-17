@@ -1,19 +1,24 @@
 "use client";
 
 import { useState, useRef } from "react";
-import Papa from "papaparse";
 import { Upload, FileText, CheckCircle, AlertCircle, X, Download } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import type { CsvPreviewRow } from "@/types";
 import { parseCsvText } from "@/lib/csv/parse";
 
+interface ImportResult {
+  totalRows: number;
+  importedRows: number;
+  skippedRows: number;
+  errorRows: number;
+  error?: string;
+}
+
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [csvText, setCsvText] = useState("");
   const [preview, setPreview] = useState<CsvPreviewRow[]>([]);
-  const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -23,10 +28,8 @@ export default function ImportPage() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      setCsvText(text);
       const parsed = parseCsvText(text);
       setPreview(parsed.rows);
-      setParseErrors(parsed.errors);
     };
     reader.readAsText(f);
   };
@@ -59,8 +62,14 @@ export default function ImportPage() {
       });
       const data = await res.json();
       setResult(data);
-    } catch (err: any) {
-      setResult({ error: err.message });
+    } catch (err: unknown) {
+      setResult({
+        totalRows: 0,
+        importedRows: 0,
+        skippedRows: 0,
+        errorRows: 0,
+        error: err instanceof Error ? err.message : "Unknown error",
+      });
     } finally {
       setImporting(false);
     }
@@ -68,9 +77,7 @@ export default function ImportPage() {
 
   const handleClear = () => {
     setFile(null);
-    setCsvText("");
     setPreview([]);
-    setParseErrors([]);
     setResult(null);
   };
 

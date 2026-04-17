@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { PageHeader } from "@/components/layout/page-header";
 import { LoadingState } from "@/components/common/loading-state";
-import { Brain, TrendingUp, Target, Activity, Clock, ChevronRight, Share2, Shield, RefreshCw, Sparkles, AlertTriangle, CheckCircle2, Zap } from "lucide-react";
+import { Activity, Shield, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { ChartCard } from "@/components/common/chart-card";
 
 interface Prediction {
@@ -26,6 +25,10 @@ interface EngineSummary {
 
 type DrawType = "NORMAL" | "SPECIAL" | "VIP";
 
+const compactPercent = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 1,
+});
+
 export default function PredictionPage() {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [summary, setSummary] = useState<EngineSummary | null>(null);
@@ -46,8 +49,8 @@ export default function PredictionPage() {
           setGeneratedAt(data.generatedAt);
           setError(null);
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -70,8 +73,8 @@ export default function PredictionPage() {
 
   return (
     <div className="animate-slide-up">
-      <div className="flex justify-between items-start mb-6">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-neon mb-2">
             AI Truth Prediction
           </h1>
@@ -79,9 +82,9 @@ export default function PredictionPage() {
             ระบบเก็งเลข (2 ตัวท้าย) อัจฉริยะจากอัลกอริทึม Truth Engine (Apex v2.1)
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full items-center justify-between gap-3 md:w-auto md:justify-end">
             {generatedAt && (
-                <span className="text-[10px] text-[var(--text-muted)] font-mono">
+                <span className="max-w-[200px] text-[10px] font-mono text-[var(--text-muted)] md:text-right">
                     Updated: {new Date(generatedAt).toLocaleTimeString()}
                 </span>
             )}
@@ -94,12 +97,12 @@ export default function PredictionPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <div className="mb-6 grid grid-cols-3 gap-3">
         {(["NORMAL", "SPECIAL", "VIP"] as DrawType[]).map((t) => (
             <button
                 key={t}
                 onClick={() => setType(t)}
-                className={`px-6 py-2 rounded-lg text-xs font-bold transition-all border ${
+                className={`rounded-lg border px-4 py-3 text-xs font-bold transition-all ${
                     type === t 
                     ? 'bg-[var(--accent-violet)] border-[var(--accent-violet)] text-white shadow-[0_0_15px_rgba(139,92,246,0.3)]' 
                     : 'bg-transparent border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--text-secondary)]'
@@ -112,7 +115,7 @@ export default function PredictionPage() {
 
       {/* Engine Status / Verdict Bar */}
       {summary && (
-          <div className={`mb-8 p-4 rounded-xl border flex items-center justify-between gap-4 ${
+          <div className={`mb-8 flex flex-col gap-4 rounded-xl border p-4 md:flex-row md:items-center md:justify-between ${
               summary.verdict === 'STRONG' 
               ? 'bg-[rgba(16,185,129,0.05)] border-[rgba(16,185,129,0.2)]'
               : 'bg-[rgba(245,158,11,0.05)] border-[rgba(245,158,11,0.2)]'
@@ -136,14 +139,14 @@ export default function PredictionPage() {
                     style={{ width: `${summary.integrity}%` }}
                   ></div>
               </div>
-              <div className="text-right">
+              <div className="w-full text-left md:w-auto md:text-right">
                   <div className="text-[10px] uppercase font-bold text-[var(--text-muted)]">Integrity</div>
                   <div className="text-sm font-black text-white">{summary.integrity}%</div>
               </div>
           </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {predictions.length > 0 && (
           <div className="lg:col-span-1">
             <div className="glass-card relative overflow-hidden group h-full border-[var(--accent-violet)] border-2">
@@ -155,18 +158,20 @@ export default function PredictionPage() {
                   <span className="font-black tracking-widest text-[10px] uppercase">Apex Candidate</span>
                 </div>
                 
-                <h2 className="text-8xl font-black text-white drop-shadow-[0_0_25px_rgba(139,92,246,0.8)] mb-6 tracking-tighter">
+                <h2 className="mb-6 text-7xl font-black tracking-tighter text-white drop-shadow-[0_0_25px_rgba(139,92,246,0.8)] sm:text-8xl">
                   {predictions[0].number}
                 </h2>
                 
-                <div className="grid grid-cols-2 gap-4 w-full mb-8">
+                <div className="mb-8 grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="bg-[rgba(255,255,255,0.03)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)] text-center">
                         <div className="text-[9px] uppercase text-[var(--text-muted)] mb-1">Trend Score</div>
                         <div className="text-lg font-black text-[var(--accent-blue)]">{predictions[0].trendScore}</div>
                     </div>
                     <div className="bg-[rgba(255,255,255,0.03)] p-3 rounded-lg border border-[rgba(255,255,255,0.05)] text-center">
                         <div className="text-[9px] uppercase text-[var(--text-muted)] mb-1">Confidence</div>
-                        <div className="text-lg font-black text-[var(--accent-emerald)]">{predictions[0].confidence}%</div>
+                        <div className="break-words text-lg font-black text-[var(--accent-emerald)]">
+                          {compactPercent.format(predictions[0].confidence)}%
+                        </div>
                     </div>
                 </div>
 
@@ -185,12 +190,13 @@ export default function PredictionPage() {
         <div className="lg:col-span-2 flex flex-col gap-4">
           <ChartCard title="Intelligence Breakdown — Signal Attribution">
             <div className="flex flex-col gap-3 mt-2">
-              {predictions.slice(1, 6).map((pred, idx) => (
-                <div 
+              {predictions.slice(1, 6).map((pred) => (
+                <div
                   key={pred.number}
-                  className="flex items-center justify-between p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] hover:border-[var(--accent-violet)] transition-all duration-300 group"
+                  className="group rounded-xl border border-[var(--border-color)] bg-[var(--bg-input)] p-4 transition-all duration-300 hover:border-[var(--accent-violet)]"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-lg bg-[var(--bg-card)] flex items-center justify-center text-[var(--accent-violet)] font-black text-sm border border-[var(--border-color)]">
                       {pred.number}
                     </div>
@@ -212,7 +218,7 @@ export default function PredictionPage() {
                     </div>
                   </div>
                   
-                  <div className="flex flex-col items-end">
+                  <div className="flex flex-col items-start sm:items-end">
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Score</span>
                         <span className="text-sm font-black text-white">{pred.trendScore}</span>
@@ -224,6 +230,7 @@ export default function PredictionPage() {
                       ></div>
                     </div>
                   </div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -233,7 +240,7 @@ export default function PredictionPage() {
       
       <div className="mb-8">
         <ChartCard title="Apex Intelligence: Real-Time Performance Monitor">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 { label: 'Integrity Score', val: `${summary?.integrity || 0}%`, desc: 'ความถูกต้องเชิงโครงสร้าง' },
                 { label: 'Baseline Edge', val: `+${((summary?.baselineDelta || 0)*100).toFixed(1)}%`, desc: 'ประสิทธิภาพเหนือค่าเฉลี่ย' },

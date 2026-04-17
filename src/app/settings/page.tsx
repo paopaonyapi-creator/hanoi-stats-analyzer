@@ -17,6 +17,25 @@ import { LoadingState } from "@/components/common/loading-state";
 import { DEFAULT_SCORE_WEIGHTS } from "@/lib/constants";
 import type { ScoreWeights } from "@/types";
 
+interface TelegramSettings {
+  token: string;
+  chatId: string;
+}
+
+interface HealthResponse {
+  integrityScore: number;
+  status: string;
+  recommendation: string;
+  missingDays: Record<string, string[]>;
+}
+
+interface OptimizationResponse {
+  champion: {
+    edgeDelta: number | string;
+    weights: ScoreWeights;
+  };
+}
+
 const WEIGHT_LABELS: Record<keyof ScoreWeights, { label: string; desc: string }> = {
   allTime: { label: "ความถี่รวม (All Time)", desc: "น้ำหนักความถี่สะสม" },
   recent: { label: "ความถี่ล่าสุด (Recent)", desc: "น้ำหนักความถี่ช่วงล่าสุด" },
@@ -34,7 +53,7 @@ export default function SettingsPage() {
   const [weights, setWeights] = useState<ScoreWeights>({
     ...DEFAULT_SCORE_WEIGHTS,
   });
-  const [telegramSettings, setTelegramSettings] = useState({ token: "", chatId: "" });
+  const [telegramSettings, setTelegramSettings] = useState<TelegramSettings>({ token: "", chatId: "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingTelegram, setSavingTelegram] = useState(false);
@@ -44,10 +63,10 @@ export default function SettingsPage() {
   const [showResetDialog, setShowResetDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [health, setHealth] = useState<any>(null);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
   const [scanning, setScanning] = useState(false);
   const [optimizing, setOptimizing] = useState(false);
-  const [optResult, setOptResult] = useState<any>(null);
+  const [optResult, setOptResult] = useState<OptimizationResponse | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -262,12 +281,12 @@ export default function SettingsPage() {
             setOptimizing(true);
             try {
               const res = await fetch("/api/predict/optimize?period=60&iterations=15&population=10");
-              const data = await res.json();
+              const data: OptimizationResponse = await res.json();
               if (data.champion) {
                  setOptResult(data);
                  setWeights(data.champion.weights);
-              }
-            } catch (err) {
+               }
+            } catch {
               alert("Optimization Failed");
             } finally {
               setOptimizing(false);
@@ -383,11 +402,11 @@ export default function SettingsPage() {
                     {['SPECIAL', 'NORMAL', 'VIP'].map(type => (
                        <div key={type} className="flex items-center justify-between text-[10px]">
                           <span className="font-bold">{type}</span>
-                          {(health.missingDays as any)[type]?.length > 0 ? (
-                             <span className="text-[var(--accent-amber)]">{(health.missingDays as any)[type].length} days missing</span>
-                          ) : (
-                             <span className="text-[var(--accent-emerald)] font-bold">100% COMPLETE</span>
-                          )}
+                           {health.missingDays[type]?.length > 0 ? (
+                              <span className="text-[var(--accent-amber)]">{health.missingDays[type].length} days missing</span>
+                           ) : (
+                              <span className="text-[var(--accent-emerald)] font-bold">100% COMPLETE</span>
+                           )}
                        </div>
                     ))}
                  </div>

@@ -1,28 +1,36 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Tv, Radio, Clock, TrendingUp, Info, ChevronRight, Hash } from "lucide-react";
+import { Radio, TrendingUp, ChevronRight } from "lucide-react";
 import { DRAW_TYPE_LABELS, DRAW_TYPE_COLORS } from "@/lib/constants";
+import type { AnalysisSummary, DrawType } from "@/types";
+
+type BroadcastSummary = AnalysisSummary & {
+    hitRate?: number;
+};
 
 export default function BroadcastModePage() {
-    const [summary, setSummary] = useState<any>(null);
+    const [summary, setSummary] = useState<BroadcastSummary | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeIndex, setActiveIndex] = useState(0); // 0: Special, 1: Normal, 2: VIP
 
     const fetchSummary = async () => {
         try {
             const res = await fetch("/api/analysis/summary");
-            const d = await res.json();
+            const d: BroadcastSummary = await res.json();
             setSummary(d);
-            setLoading(false);
         } catch (e) {
             console.error(e);
+        } finally {
+            setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchSummary();
-        const interval = setInterval(fetchSummary, 30000); // Refresh every 30s
+        void fetchSummary();
+        const interval = setInterval(() => {
+            void fetchSummary();
+        }, 30000); // Refresh every 30s
         return () => clearInterval(interval);
     }, []);
 
@@ -47,7 +55,9 @@ export default function BroadcastModePage() {
 
     const types = ["SPECIAL", "NORMAL", "VIP"] as const;
     const activeType = types[activeIndex];
-    const latestResult = summary.recentRecords.find((r: any) => r.drawType === activeType) || summary.recentRecords[0];
+    const latestResult =
+        summary.recentRecords.find((record) => record.drawType === activeType) ??
+        summary.recentRecords[0];
 
     return (
         <div className="fixed inset-0 bg-[#010204] z-50 overflow-hidden flex flex-col font-sans">
@@ -120,7 +130,7 @@ export default function BroadcastModePage() {
                             <h3 className="text-sm font-black text-white uppercase tracking-widest">STATION HOT LIST</h3>
                         </div>
                         <div className="grid grid-cols-5 gap-3">
-                            {summary.topLast2.slice(0, 10).map((num: any, i: number) => (
+                            {summary.topLast2.slice(0, 10).map((num, i) => (
                                 <div key={num.value} className="flex flex-col items-center">
                                     <div className={`w-full aspect-square rounded-lg flex items-center justify-center font-black text-lg border ${
                                         i === 0 ? 'bg-[var(--accent-rose)] text-white border-none shadow-[0_0_15px_rgba(244,63,94,0.4)]' : 'bg-transparent text-[var(--text-secondary)] border-[rgba(255,255,255,0.1)]'
@@ -137,10 +147,10 @@ export default function BroadcastModePage() {
                     <div className="flex-1 flex flex-col">
                         <h3 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-4">RECENT ACTIVITY FEED</h3>
                         <div className="space-y-4">
-                            {summary.recentRecords.slice(0, 5).map((r: any, i: number) => (
+                            {summary.recentRecords.slice(0, 5).map((r) => (
                                 <div key={r.id} className="flex items-center justify-between p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-8 h-8 rounded bg-[var(--bg-card)] flex items-center justify-center text-[10px] font-black`} style={{ color: (DRAW_TYPE_COLORS as any)[r.drawType] }}>
+                                        <div className="w-8 h-8 rounded bg-[var(--bg-card)] flex items-center justify-center text-[10px] font-black" style={{ color: DRAW_TYPE_COLORS[r.drawType as DrawType] }}>
                                             {r.drawType.slice(0, 3)}
                                         </div>
                                         <div>

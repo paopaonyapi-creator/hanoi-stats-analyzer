@@ -1,14 +1,22 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { DrawType } from '@prisma/client';
 import { runTruthPipeline } from '@/lib/truth/pipeline';
 import { DEFAULT_TRUTH_ENGINE_SETTINGS } from '@/lib/truth/constants';
+import type { DrawResultRecord, DrawType } from '@/types';
+
+function parseDrawType(value: string | null): DrawType | "ALL" {
+  if (value === "SPECIAL" || value === "NORMAL" || value === "VIP") {
+    return value;
+  }
+  return "ALL";
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const typeStr = searchParams.get('type') || 'NORMAL';
-    const limit = parseInt(searchParams.get('limit') || '150');
+    const typeStr = parseDrawType(searchParams.get('type')) === "ALL"
+      ? "ALL"
+      : parseDrawType(searchParams.get('type'));
     
     // 1. Fetch data for analysis
     // We fetch ALL records to allow for multi-market correlation calculation
@@ -28,15 +36,35 @@ export async function GET(request: Request) {
 
     // 2. Load Champion Weights from Settings
     const weightSetting = await prisma.appSetting.findUnique({ where: { key: 'scoreWeights' } });
-    const weights = (weightSetting?.valueJson as any) || DEFAULT_TRUTH_ENGINE_SETTINGS.weights;
+    const weights = {
+      ...DEFAULT_TRUTH_ENGINE_SETTINGS.weights,
+      ...(weightSetting?.valueJson as Partial<typeof DEFAULT_TRUTH_ENGINE_SETTINGS.weights> | null),
+    };
     
     const settings = {
         ...DEFAULT_TRUTH_ENGINE_SETTINGS,
         weights
     };
 
+    const normalizedRecords: DrawResultRecord[] = targetRecords.map((record) => ({
+      id: record.id,
+      drawDate: record.drawDate.toISOString(),
+      drawType: record.drawType,
+      drawTime: record.drawTime,
+      resultRaw: record.resultRaw,
+      resultDigits: record.resultDigits,
+      last1: record.last1,
+      last2: record.last2,
+      last3: record.last3,
+      weekday: record.weekday,
+      monthKey: record.monthKey,
+      source: record.source,
+      createdAt: record.createdAt.toISOString(),
+      updatedAt: record.updatedAt.toISOString(),
+    }));
+
     // 3. Execution: Run the Full Truth Pipeline
-    const report = runTruthPipeline(targetRecords as any, { 
+    const report = runTruthPipeline(normalizedRecords, { 
       settings,
       drawType: typeStr
     });
@@ -55,7 +83,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       type: typeStr,
       generatedAt: report.generatedAt,
-      latestResult: targetRecords[0]?.last2,
+      latestResult: normalizedRecords[0]?.last2,
       predictions: topPredictions,
       engineSummary: {
           integrity: report.integrityReport.score,
@@ -67,8 +95,11 @@ export async function GET(request: Request) {
       driftReport: report.driftReport
     });
 
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Prediction Engine Error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Prediction failed" },
+      { status: 500 }
+    );
   }
 }

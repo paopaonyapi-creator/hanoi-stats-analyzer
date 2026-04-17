@@ -7,12 +7,19 @@ import { ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { LoadingState } from "@/components/common/loading-state";
 import { DRAW_TYPE_LABELS, WEEKDAY_LABELS } from "@/lib/constants";
-import type { DrawType } from "@/types";
+import type { DrawResultRecord, DrawType } from "@/types";
+
+interface ResultDetailResponse {
+  record: DrawResultRecord | null;
+  sameDayRecords?: DrawResultRecord[];
+  prev?: DrawResultRecord | null;
+  next?: DrawResultRecord | null;
+}
 
 export default function ResultDetailPage() {
   const params = useParams();
   const id = params.id as string;
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<ResultDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,6 +51,7 @@ export default function ResultDetailPage() {
   const tens = r.last2[0];
   const units = r.last2[1];
   const sameDigits = tens === units;
+  const sameDayRecords = data.sameDayRecords ?? [];
 
   return (
     <div className="animate-fade-in">
@@ -132,13 +140,13 @@ export default function ResultDetailPage() {
       </div>
 
       {/* Same Day Records */}
-      {data.sameDayRecords?.length > 0 && (
+      {sameDayRecords.length > 0 && (
         <div className="glass-card p-4 mb-6">
           <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">
             ผลวันเดียวกัน
           </h3>
           <div className="space-y-2">
-            {data.sameDayRecords.map((sr: any) => (
+            {sameDayRecords.map((sr) => (
               <Link
                 key={sr.id}
                 href={`/results/${sr.id}`}

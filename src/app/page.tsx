@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Database,
-  Calendar,
   TrendingUp,
   Award,
-  Hash,
   Activity,
   ShieldCheck,
   Bot,
@@ -15,30 +13,50 @@ import {
   Terminal,
   ArrowUpRight,
   ArrowRight,
-  ShieldAlert,
-  Tv,
   Microscope,
   FileDown,
   Radar
 } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { StatCard } from "@/components/common/stat-card";
 import { LoadingState } from "@/components/common/loading-state";
 import { EmptyState } from "@/components/common/empty-state";
 import { LiveMonitor } from "@/components/dashboard/LiveMonitor";
 import { NumericalGapMatrix } from "@/components/dashboard/NumericalGapMatrix";
-import { DRAW_TYPE_LABELS } from "@/lib/constants";
 import type { AnalysisSummary } from "@/types";
+
+interface DashboardStatus {
+  systemHealth: {
+    verdict: string;
+    integrity: number;
+    integrityLevel: string;
+    driftSeverity: string;
+    driftScore?: number;
+  };
+  intelligence: {
+    averageDelta: number;
+    backtestVerdict: string;
+    expectedValue: number;
+  };
+  marketPulse: {
+    correlation?: {
+      verdict: string;
+    };
+  };
+}
+
+interface DashboardPrediction {
+  number: string;
+  label: string;
+  trendScore: number;
+}
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState<AnalysisSummary | null>(null);
-  const [status, setStatus] = useState<any>(null);
-  const [predictions, setPredictions] = useState<any[]>([]);
+  const [status, setStatus] = useState<DashboardStatus | null>(null);
+  const [predictions, setPredictions] = useState<DashboardPrediction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
     Promise.all([
       fetch("/api/analysis/summary").then(r => r.json()),
       fetch("/api/truth/status").then(r => r.json()),
@@ -53,8 +71,8 @@ export default function DashboardPage() {
       }
       setLoading(false);
     })
-    .catch(err => {
-      setError(err.message);
+    .catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : "Unknown error");
       setLoading(false);
     });
   }, []);
@@ -76,28 +94,28 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-slide-up">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-neon mb-1 tracking-tighter">
+      <div className="mb-8 flex flex-col items-start justify-between gap-4 xl:flex-row xl:items-center">
+        <div className="min-w-0">
+          <h1 className="mb-1 bg-gradient-neon bg-clip-text text-3xl font-black tracking-tighter text-transparent sm:text-4xl">
             COMMAND CENTER
           </h1>
-          <div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-widest">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">
              <span className="flex items-center gap-1"><Terminal className="w-3 h-3" /> System: Online</span>
              <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Status: {status?.systemHealth.verdict} Signal</span>
           </div>
         </div>
-        <div className="flex gap-2">
-            <Link href="/analysis/radar" className="btn-secondary text-xs flex items-center gap-2 group">
+        <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 xl:w-auto">
+            <Link href="/analysis/radar" className="btn-secondary text-xs group">
                 <Radar className="w-3.5 h-3.5" />
                 <span>Radar</span>
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
-            <Link href="/analysis/simulation" className="btn-secondary text-xs flex items-center gap-2 group">
+            <Link href="/analysis/simulation" className="btn-secondary text-xs group">
                 <Microscope className="w-3.5 h-3.5" />
                 <span>Simulator</span>
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </Link>
-            <Link href="/prediction" className="btn-primary text-xs flex items-center gap-2 shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+            <Link href="/prediction" className="btn-primary text-xs shadow-[0_0_15px_rgba(59,130,246,0.3)]">
                 <Zap className="w-3.5 h-3.5" />
                 Apex Predictor
             </Link>
@@ -172,15 +190,15 @@ export default function DashboardPage() {
           </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-4">
           {/* Main Operation Control */}
-          <div className="lg:col-span-3 space-y-6">
+          <div className="min-w-0 space-y-6 xl:col-span-3">
               <LiveMonitor />
               <NumericalGapMatrix records={summary.recentRecords} />
           </div>
 
           {/* Side Intelligence Panel */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="space-y-6 xl:col-span-1">
               <div className="glass-card p-6">
                   <div className="flex items-center justify-between mb-6">
                       <h3 className="text-xs font-black text-white uppercase tracking-widest">Apex Predictions</h3>
@@ -230,11 +248,11 @@ export default function DashboardPage() {
 
               {/* Quick Actions Zone */}
               <div className="grid grid-cols-2 gap-3">
-                  <Link href="/import" className="btn-secondary h-20 flex flex-col items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:border-[var(--accent-blue)]">
+                  <Link href="/import" className="btn-secondary h-20 flex-col text-[10px] font-black uppercase tracking-widest hover:border-[var(--accent-blue)]">
                       <Database className="w-5 h-5 text-[var(--accent-blue)]" />
                       Sync
                   </Link>
-                  <button onClick={() => window.open('/api/results/export')} className="btn-secondary h-20 flex flex-col items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest hover:border-[var(--accent-violet)]">
+                  <button onClick={() => window.open('/api/results/export')} className="btn-secondary h-20 flex-col text-[10px] font-black uppercase tracking-widest hover:border-[var(--accent-violet)]">
                       <FileDown className="w-5 h-5 text-[var(--accent-violet)]" />
                       Export
                   </button>
@@ -243,14 +261,14 @@ export default function DashboardPage() {
       </div>
 
       {/* Numerical Records Strip */}
-      <div className="glass-card p-6">
+      <div className="glass-card p-4 sm:p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xs font-black text-white uppercase tracking-widest">
             Recent Data Stream
           </h3>
           <Link href="/results" className="text-[10px] uppercase font-bold text-[var(--accent-blue)] hover:underline">Full Log →</Link>
         </div>
-        <div className="overflow-x-auto">
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-[var(--border-color)]">
@@ -283,6 +301,40 @@ export default function DashboardPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="grid gap-3 md:hidden">
+          {summary.recentRecords.slice(0, 8).map((r) => (
+            <div
+              key={r.id}
+              className="rounded-2xl border border-[var(--border-color)] bg-[rgba(255,255,255,0.02)] p-4"
+            >
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <span className={`rounded-full px-2 py-1 text-[10px] font-black ${
+                  r.drawType === "NORMAL"
+                    ? "bg-[var(--accent-blue)] text-white"
+                    : r.drawType === "SPECIAL"
+                      ? "bg-[var(--accent-violet)] text-white"
+                      : "bg-[var(--accent-amber)] text-black"
+                }`}>
+                  {r.drawType}
+                </span>
+                <span className="font-mono text-[10px] text-[var(--text-muted)]">
+                  {new Date(r.drawDate).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="mb-3 font-mono text-2xl font-black text-white">{r.resultDigits}</div>
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl bg-[rgba(255,255,255,0.03)] p-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Last 2</div>
+                  <div className="font-mono font-bold text-[var(--accent-amber)]">{r.last2}</div>
+                </div>
+                <div className="rounded-xl bg-[rgba(255,255,255,0.03)] p-3">
+                  <div className="mb-1 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Last 3</div>
+                  <div className="font-mono font-bold text-[var(--accent-violet)]">{r.last3}</div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

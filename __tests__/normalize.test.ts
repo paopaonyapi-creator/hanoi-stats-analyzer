@@ -1,116 +1,81 @@
-/**
- * Tests for normalization utilities
- *
- * Run with: npx tsx __tests__/normalize.test.ts
- * (Or integrate with Jest/Vitest when ready)
- */
+import { describe, expect, it } from "vitest";
+import {
+  extractDigits,
+  lastN,
+  normalizeDrawType,
+  parseDrawDate,
+} from "../src/lib/csv/normalize";
 
-import { normalizeDrawType, extractDigits, parseDrawDate, lastN } from "../src/lib/csv/normalize";
+describe("normalizeDrawType", () => {
+  it("normalizes known draw types", () => {
+    expect(normalizeDrawType("SPECIAL")).toBe("SPECIAL");
+    expect(normalizeDrawType("special")).toBe("SPECIAL");
+    expect(normalizeDrawType("ฮานอยพิเศษ")).toBe("SPECIAL");
+    expect(normalizeDrawType("พิเศษ")).toBe("SPECIAL");
 
-// ═══════════════════════════════════════════════
-// Test Helpers
-// ═══════════════════════════════════════════════
+    expect(normalizeDrawType("NORMAL")).toBe("NORMAL");
+    expect(normalizeDrawType("normal")).toBe("NORMAL");
+    expect(normalizeDrawType("ฮานอยปกติ")).toBe("NORMAL");
+    expect(normalizeDrawType("hanoi")).toBe("NORMAL");
 
-let passed = 0;
-let failed = 0;
+    expect(normalizeDrawType("VIP")).toBe("VIP");
+    expect(normalizeDrawType("vip")).toBe("VIP");
+    expect(normalizeDrawType("ฮานอยวีไอพี")).toBe("VIP");
+  });
 
-function assert(condition: boolean, testName: string) {
-  if (condition) {
-    console.log(`  ✅ ${testName}`);
-    passed++;
-  } else {
-    console.log(`  ❌ ${testName}`);
-    failed++;
-  }
-}
+  it("returns null for unknown values", () => {
+    expect(normalizeDrawType("")).toBeNull();
+    expect(normalizeDrawType("unknown")).toBeNull();
+  });
+});
 
-function assertEqual(actual: any, expected: any, testName: string) {
-  const pass = JSON.stringify(actual) === JSON.stringify(expected);
-  if (!pass) {
-    console.log(`  ❌ ${testName} — expected: ${JSON.stringify(expected)}, got: ${JSON.stringify(actual)}`);
-    failed++;
-  } else {
-    console.log(`  ✅ ${testName}`);
-    passed++;
-  }
-}
+describe("extractDigits", () => {
+  it("extracts digits from mixed input", () => {
+    expect(extractDigits("48273")).toBe("48273");
+    expect(extractDigits("4-8-2-7-3")).toBe("48273");
+    expect(extractDigits("48 273")).toBe("48273");
+    expect(extractDigits("result: 48273")).toBe("48273");
+  });
 
-// ═══════════════════════════════════════════════
-// normalizeDrawType
-// ═══════════════════════════════════════════════
+  it("returns null when there are not enough digits", () => {
+    expect(extractDigits("a")).toBeNull();
+    expect(extractDigits("")).toBeNull();
+    expect(extractDigits("1")).toBeNull();
+  });
 
-console.log("\n📌 normalizeDrawType");
+  it("accepts two digits and above", () => {
+    expect(extractDigits("12")).toBe("12");
+  });
+});
 
-assertEqual(normalizeDrawType("SPECIAL"), "SPECIAL", "uppercase SPECIAL");
-assertEqual(normalizeDrawType("special"), "SPECIAL", "lowercase special");
-assertEqual(normalizeDrawType("ฮานอยพิเศษ"), "SPECIAL", "Thai ฮานอยพิเศษ");
-assertEqual(normalizeDrawType("พิเศษ"), "SPECIAL", "Thai พิเศษ");
+describe("parseDrawDate", () => {
+  it("parses ISO dates", () => {
+    const date = parseDrawDate("2025-03-01");
 
-assertEqual(normalizeDrawType("NORMAL"), "NORMAL", "uppercase NORMAL");
-assertEqual(normalizeDrawType("normal"), "NORMAL", "lowercase normal");
-assertEqual(normalizeDrawType("ฮานอยปกติ"), "NORMAL", "Thai ฮานอยปกติ");
-assertEqual(normalizeDrawType("hanoi"), "NORMAL", "alias hanoi");
+    expect(date).not.toBeNull();
+    expect(date?.getFullYear()).toBe(2025);
+    expect(date?.getMonth()).toBe(2);
+    expect(date?.getDate()).toBe(1);
+  });
 
-assertEqual(normalizeDrawType("VIP"), "VIP", "uppercase VIP");
-assertEqual(normalizeDrawType("vip"), "VIP", "lowercase vip");
-assertEqual(normalizeDrawType("ฮานอยวีไอพี"), "VIP", "Thai ฮานอยวีไอพี");
+  it("parses dd/MM/yyyy dates", () => {
+    expect(parseDrawDate("01/03/2025")).not.toBeNull();
+  });
 
-assertEqual(normalizeDrawType(""), null, "empty string");
-assertEqual(normalizeDrawType("unknown"), null, "unknown type");
+  it("returns null for empty or invalid input", () => {
+    expect(parseDrawDate("")).toBeNull();
+    expect(parseDrawDate("invalid")).toBeNull();
+  });
+});
 
-// ═══════════════════════════════════════════════
-// extractDigits
-// ═══════════════════════════════════════════════
+describe("lastN", () => {
+  it("returns the requested suffix", () => {
+    expect(lastN("48273", 1)).toBe("3");
+    expect(lastN("48273", 2)).toBe("73");
+    expect(lastN("48273", 3)).toBe("273");
+  });
 
-console.log("\n📌 extractDigits");
-
-assertEqual(extractDigits("48273"), "48273", "plain digits");
-assertEqual(extractDigits("4-8-2-7-3"), "48273", "digits with dashes");
-assertEqual(extractDigits("48 273"), "48273", "digits with space");
-assertEqual(extractDigits("result: 48273"), "48273", "digits with text");
-assertEqual(extractDigits("a"), null, "single letter");
-assertEqual(extractDigits(""), null, "empty string");
-assertEqual(extractDigits("1"), null, "single digit (< 2)");
-assertEqual(extractDigits("12"), "12", "two digits is valid");
-
-// ═══════════════════════════════════════════════
-// parseDrawDate
-// ═══════════════════════════════════════════════
-
-console.log("\n📌 parseDrawDate");
-
-const d1 = parseDrawDate("2025-03-01");
-assert(d1 !== null, "ISO date parsed");
-assertEqual(d1?.getFullYear(), 2025, "ISO year");
-assertEqual(d1?.getMonth(), 2, "ISO month (0-indexed)");
-assertEqual(d1?.getDate(), 1, "ISO day");
-
-const d2 = parseDrawDate("01/03/2025");
-assert(d2 !== null, "dd/MM/yyyy parsed");
-
-const d3 = parseDrawDate("");
-assertEqual(d3, null, "empty date returns null");
-
-const d4 = parseDrawDate("invalid");
-assertEqual(d4, null, "invalid date returns null");
-
-// ═══════════════════════════════════════════════
-// lastN
-// ═══════════════════════════════════════════════
-
-console.log("\n📌 lastN");
-
-assertEqual(lastN("48273", 1), "3", "last 1 digit");
-assertEqual(lastN("48273", 2), "73", "last 2 digits");
-assertEqual(lastN("48273", 3), "273", "last 3 digits");
-assertEqual(lastN("5", 2), "05", "padded short string");
-
-// ═══════════════════════════════════════════════
-// Summary
-// ═══════════════════════════════════════════════
-
-console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-console.log(`Results: ${passed} passed, ${failed} failed`);
-console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
-
-if (failed > 0) process.exit(1);
+  it("pads short values", () => {
+    expect(lastN("5", 2)).toBe("05");
+  });
+});

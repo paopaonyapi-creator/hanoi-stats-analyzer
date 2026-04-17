@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { buildAnalysisSummary } from "@/lib/stats/analysis";
-import type { DrawResultRecord } from "@/types";
+import type { AnalysisSummary, DrawResultRecord, DrawType } from "@/types";
 import { runWalkForwardBacktest } from "@/lib/truth/backtest";
 import { 
     calculateExpectedValue, 
@@ -10,15 +11,38 @@ import {
 } from "@/lib/truth/risk";
 import { DEFAULT_TRUTH_ENGINE_SETTINGS } from "@/lib/truth/constants";
 
+interface RiskIntelligence {
+  ev: number;
+  kellyStake: number;
+  backtestDelta: number;
+  backtestVerdict: string;
+  monteCarlo: {
+    maxDrawdown: number;
+    probOfLoss: number;
+    medianReturn: number;
+  };
+}
+
+type AnalysisSummaryResponse = AnalysisSummary & {
+  riskIntelligence?: RiskIntelligence;
+};
+
+function parseDrawType(value: string | null): DrawType | "ALL" {
+  if (value === "SPECIAL" || value === "NORMAL" || value === "VIP") {
+    return value;
+  }
+  return "ALL";
+}
+
 // GET /api/analysis/summary
 export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
-    const drawType = url.searchParams.get("drawType");
+    const drawType = parseDrawType(url.searchParams.get("drawType"));
     const windowSize = parseInt(url.searchParams.get("window") || "0", 10);
 
-    const where: any = {};
-    if (drawType && drawType !== "ALL") {
+    const where: Prisma.DrawResultWhereInput = {};
+    if (drawType !== "ALL") {
       where.drawType = drawType;
     }
 
@@ -50,7 +74,7 @@ export async function GET(req: NextRequest) {
       updatedAt: r.updatedAt.toISOString(),
     }));
 
-    const summary = buildAnalysisSummary(plainRecords) as any;
+    const summary: AnalysisSummaryResponse = buildAnalysisSummary(plainRecords);
 
     // ── INTEGRATE RISK INTELLIGENCE ──
     if (plainRecords.length >= 40) {
@@ -78,10 +102,10 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json(summary);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Analysis error:", error);
     return NextResponse.json(
-      { error: error?.message || "Analysis failed" },
+      { error: error instanceof Error ? error.message : "Analysis failed" },
       { status: 500 }
     );
   }

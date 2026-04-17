@@ -7,7 +7,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-      <div>
+      <div className="min-w-0">
         <h1 className="text-2xl font-bold text-[var(--text-primary)]">
           {title}
         </h1>
@@ -17,7 +17,11 @@ export function PageHeader({ title, description, children }: PageHeaderProps) {
           </p>
         )}
       </div>
-      {children && <div className="flex items-center gap-3">{children}</div>}
+      {children && (
+        <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

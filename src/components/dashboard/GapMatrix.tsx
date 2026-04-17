@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable react/no-unescaped-entities */
+
 import { useMemo } from "react";
 import { Info } from "lucide-react";
 

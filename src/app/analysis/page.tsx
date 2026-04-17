@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
-import { ChartCard } from "@/components/common/chart-card";
 import { LoadingState } from "@/components/common/loading-state";
 import { EmptyState } from "@/components/common/empty-state";
 import {
@@ -15,11 +14,19 @@ import {
 } from "@/lib/constants";
 import type { AnalysisSummary, DrawType } from "@/types";
 
-const TOOLTIP_STYLE = {
-  background: "#1a1f35",
-  border: "1px solid #2a3154",
-  borderRadius: "8px",
-  color: "#e8eaf6",
+interface RiskIntelligence {
+  ev: number;
+  kellyStake: number;
+  backtestDelta: number;
+  backtestVerdict: string;
+  monteCarlo: {
+    maxDrawdown: number;
+    probOfLoss: number;
+  };
+}
+
+type AnalysisSummaryResponse = AnalysisSummary & {
+  riskIntelligence?: RiskIntelligence;
 };
 
 function AnalysisPageInner() {
@@ -27,7 +34,7 @@ function AnalysisPageInner() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [data, setData] = useState<AnalysisSummary | null>(null);
+  const [data, setData] = useState<AnalysisSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Derive state from URL or defaults
@@ -48,19 +55,25 @@ function AnalysisPageInner() {
     router.replace(`${pathname}?${params.toString()}`);
   };
 
-  useEffect(() => {
+  const fetchData = async (currentDrawType: string, currentWindow: number) => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (drawType !== "ALL") params.set("drawType", drawType);
-    if (window > 0) params.set("window", String(window));
+    if (currentDrawType !== "ALL") params.set("drawType", currentDrawType);
+    if (currentWindow > 0) params.set("window", String(currentWindow));
 
-    fetch(`/api/analysis/summary?${params}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setData(d);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    try {
+      const response = await fetch(`/api/analysis/summary?${params}`);
+      const payload: AnalysisSummaryResponse = await response.json();
+      setData(payload);
+    } catch {
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void fetchData(drawType, window);
   }, [drawType, window]);
 
   if (loading) return <LoadingState />;
@@ -68,6 +81,7 @@ function AnalysisPageInner() {
     return <EmptyState message="ไม่มีข้อมูลเพียงพอสำหรับการวิเคราะห์" />;
   }
 
+  const { riskIntelligence } = data;
   const typeDistData = (["SPECIAL", "NORMAL", "VIP"] as const).map((t) => ({
     name: DRAW_TYPE_LABELS[t],
     value: data.byType[t],
@@ -112,18 +126,18 @@ function AnalysisPageInner() {
       </div>
 
       {/* Financial Stewardship / Risk Intelligence */}
-      {(data as any).riskIntelligence && (
+      {riskIntelligence && (
         <div className="glass-card p-6 mb-6 border-l-4 border-[var(--accent-amber)] animate-pulse-subtle">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-[var(--accent-amber)]">Financial Edge Insight</h3>
-              <p className="text-sm font-medium text-white italic opacity-80">"Risk management is the only holy grail in probability."</p>
+              <p className="text-sm font-medium text-white italic opacity-80">&ldquo;Risk management is the only holy grail in probability.&rdquo;</p>
             </div>
             <div className="text-right">
               <span className={`text-[10px] font-black px-2 py-1 rounded border overflow-hidden ${
-                (data as any).riskIntelligence.ev > 0 ? "border-[var(--accent-emerald)] text-[var(--accent-emerald)] bg-[rgba(16,185,129,0.1)]" : "border-[var(--accent-rose)] text-[var(--accent-rose)] bg-[rgba(244,63,94,0.1)]"
+                riskIntelligence.ev > 0 ? "border-[var(--accent-emerald)] text-[var(--accent-emerald)] bg-[rgba(16,185,129,0.1)]" : "border-[var(--accent-rose)] text-[var(--accent-rose)] bg-[rgba(244,63,94,0.1)]"
               }`}>
-                {(data as any).riskIntelligence.backtestVerdict}
+                {riskIntelligence.backtestVerdict}
               </span>
             </div>
           </div>
@@ -131,34 +145,34 @@ function AnalysisPageInner() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
               <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Expected Value (EV)</p>
-              <p className={`text-2xl font-black ${(data as any).riskIntelligence.ev > 0 ? "text-[var(--accent-emerald)]" : "text-[var(--accent-rose)]"}`}>
-                {(data as any).riskIntelligence.ev > 0 ? "+" : ""}{((data as any).riskIntelligence.ev * 100).toFixed(1)}%
+              <p className={`text-2xl font-black ${riskIntelligence.ev > 0 ? "text-[var(--accent-emerald)]" : "text-[var(--accent-rose)]"}`}>
+                {riskIntelligence.ev > 0 ? "+" : ""}{(riskIntelligence.ev * 100).toFixed(1)}%
               </p>
               <p className="text-[8px] text-[var(--text-muted)] mt-1">กำไรคาดหวังต่อ 1 หน่วยเดิมพัน</p>
             </div>
             
             <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
               <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Kelly Stake (Optimum)</p>
-              <p className="text-2xl font-black text-white">{((data as any).riskIntelligence.kellyStake * 100).toFixed(1)}%</p>
+              <p className="text-2xl font-black text-white">{(riskIntelligence.kellyStake * 100).toFixed(1)}%</p>
               <p className="text-[8px] text-[var(--text-muted)] mt-1">สัดส่วนเงินทุนที่แนะนำให้ลงต่อรอบ</p>
             </div>
 
             <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
               <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Max Drawdown Est.</p>
-              <p className="text-2xl font-black text-[var(--accent-rose)]">{((data as any).riskIntelligence.monteCarlo.maxDrawdown * 100).toFixed(1)}%</p>
+              <p className="text-2xl font-black text-[var(--accent-rose)]">{(riskIntelligence.monteCarlo.maxDrawdown * 100).toFixed(1)}%</p>
               <p className="text-[8px] text-[var(--text-muted)] mt-1">โอกาสการที่ทุนจะลดลงสูงสุด (จำลอง)</p>
             </div>
 
             <div className="p-4 rounded-xl bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
               <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase mb-1">Prob. of Bankroll Loss</p>
-              <p className="text-2xl font-black text-white">{((data as any).riskIntelligence.monteCarlo.probOfLoss * 100).toFixed(1)}%</p>
+              <p className="text-2xl font-black text-white">{(riskIntelligence.monteCarlo.probOfLoss * 100).toFixed(1)}%</p>
               <p className="text-[8px] text-[var(--text-muted)] mt-1">ความเสี่ยงที่จะขาดทุนใน 30 วัน</p>
             </div>
           </div>
           
           <div className="mt-4 pt-4 border-t border-[rgba(255,255,255,0.05)]">
             <p className="text-[9px] text-[var(--text-muted)] text-center font-medium">
-              Simulation basis: 1,000 Monte Carlo paths over 30 days horizon using current Backtest Edge: <b>+{((data as any).riskIntelligence.backtestDelta * 100).toFixed(2)}%</b>
+              Simulation basis: 1,000 Monte Carlo paths over 30 days horizon using current Backtest Edge: <b>+{(riskIntelligence.backtestDelta * 100).toFixed(2)}%</b>
             </p>
           </div>
         </div>

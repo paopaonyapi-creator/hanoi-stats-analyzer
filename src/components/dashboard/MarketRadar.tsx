@@ -1,10 +1,20 @@
 "use client";
 
-import { Activity, Zap, ShieldCheck, Database } from 'lucide-react';
+import { Activity, Zap } from "lucide-react";
+
+interface MarketRadarEntry {
+    label: string;
+    density: string;
+    energy: number;
+    accuracy: number;
+    integrity: number;
+}
 
 interface MarketRadarProps {
-    data: any[];
+    data: MarketRadarEntry[];
 }
+
+const RADAR_VERSION = "2026.04";
 
 export function MarketRadar({ data }: MarketRadarProps) {
     if (!data || data.length === 0) return null;
@@ -56,7 +66,7 @@ export function MarketRadar({ data }: MarketRadarProps) {
                     <Zap className="w-2.5 h-2.5 text-[var(--accent-amber)]" />
                     <span>Signal Sync: Active</span>
                 </div>
-                <div>v{Date.now().toString().slice(-4)}</div>
+                <div>v{RADAR_VERSION}</div>
             </div>
         </div>
     );

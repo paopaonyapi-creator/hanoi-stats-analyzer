@@ -25,35 +25,37 @@ export default function TruthPage() {
   const [drawType, setDrawType] = useState("ALL");
   const [recomputing, setRecomputing] = useState(false);
 
-  const fetchData = (dt: string) => {
-    setLoading(true);
+  const fetchData = async (dt: string, showLoading: boolean = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     setError(null);
     const params = dt !== "ALL" ? `?drawType=${dt}` : "";
-    fetch(`/api/truth/reality${params}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) {
-          setError(d.error);
-        } else {
-          setData(d);
-        }
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError(e.message);
-        setLoading(false);
-      });
+    try {
+      const response = await fetch(`/api/truth/reality${params}`);
+      const payload = await response.json();
+
+      if (payload.error) {
+        setError(payload.error);
+      } else {
+        setData(payload);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    fetchData(drawType);
+    void fetchData(drawType, false);
   }, [drawType]);
 
   const handleRecompute = async () => {
     setRecomputing(true);
     try {
       await fetch("/api/truth/snapshot", { method: "POST" });
-      fetchData(drawType);
+      await fetchData(drawType);
     } catch { }
     setRecomputing(false);
   };

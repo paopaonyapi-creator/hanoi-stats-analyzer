@@ -103,7 +103,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <main className="main-content flex-1 md:ml-[260px]">
         {/* Top bar for mobile */}
-        <div className="md:hidden flex items-center gap-3 p-4 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
+        <div className="sticky top-0 z-20 md:hidden flex items-center gap-3 p-4 border-b border-[var(--border-color)] bg-[rgba(10,15,30,0.92)] backdrop-blur">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className="p-2 rounded-md hover:bg-[var(--bg-card)]"
