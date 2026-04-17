@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { runTruthPipeline } from '@/lib/truth/pipeline';
+import { computeEnsembleScores } from '@/lib/truth/ensemble';
 import { DEFAULT_TRUTH_ENGINE_SETTINGS } from '@/lib/truth/constants';
 import type { DrawResultRecord, DrawType } from '@/types';
 
@@ -14,37 +15,30 @@ function parseDrawType(value: string | null): DrawType | "ALL" {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const typeStr = parseDrawType(searchParams.get('type')) === "ALL"
-      ? "ALL"
-      : parseDrawType(searchParams.get('type'));
-    
-    // 1. Fetch data for analysis
-    // We fetch ALL records to allow for multi-market correlation calculation
+    const typeStr = parseDrawType(searchParams.get('type'));
+    const topN = Math.min(parseInt(searchParams.get('top') || '10', 10), 20);
+
+    // 1. Fetch data — fetch ALL for cross-market correlation
     const allRecords = await prisma.drawResult.findMany({
       orderBy: { drawDate: 'desc' },
-      take: 500, // Large enough sample for cross-market intelligence
+      take: 500,
     });
 
     if (allRecords.length === 0) {
       return NextResponse.json({ error: 'No data' }, { status: 404 });
     }
 
-    // Filter target records for the specific type
-    const targetRecords = typeStr === 'ALL' 
-      ? allRecords 
+    const targetRecords = typeStr === 'ALL'
+      ? allRecords
       : allRecords.filter(r => r.drawType === typeStr);
 
-    // 2. Load Champion Weights from Settings
+    // 2. Load Champion Weights
     const weightSetting = await prisma.appSetting.findUnique({ where: { key: 'scoreWeights' } });
     const weights = {
       ...DEFAULT_TRUTH_ENGINE_SETTINGS.weights,
       ...(weightSetting?.valueJson as Partial<typeof DEFAULT_TRUTH_ENGINE_SETTINGS.weights> | null),
     };
-    
-    const settings = {
-        ...DEFAULT_TRUTH_ENGINE_SETTINGS,
-        weights
-    };
+    const settings = { ...DEFAULT_TRUTH_ENGINE_SETTINGS, weights };
 
     const normalizedRecords: DrawResultRecord[] = targetRecords.map((record) => ({
       id: record.id,
@@ -63,21 +57,62 @@ export async function GET(request: Request) {
       updatedAt: record.updatedAt.toISOString(),
     }));
 
-    // 3. Execution: Run the Full Truth Pipeline
-    const report = runTruthPipeline(normalizedRecords, { 
+    // 3. Run full Truth Pipeline (existing)
+    const report = runTruthPipeline(normalizedRecords, {
       settings,
-      drawType: typeStr
+      drawType: typeStr,
     });
 
-    // 4. Extract Top Predictions (Numerical High-Density)
-    const topPredictions = report.truthScores.slice(0, 10).map(s => ({
+    // 4. ── NEW: Bayesian Ensemble Layer ──────────────────
+    const ensembleScores = computeEnsembleScores(normalizedRecords, {
+      driftReport: report.driftReport,
+    });
+
+    // Build lookup map for fast merge
+    const ensembleMap = new Map(ensembleScores.map((e) => [e.number, e]));
+
+    // 5. Merge ensemble into Truth scores with weighted blend
+    //    Truth = 60% TruthScore + 40% EnsembleScore  (configurable)
+    const TRUTH_WEIGHT = 0.60;
+    const ENSEMBLE_WEIGHT = 0.40;
+
+    const topPredictions = report.truthScores.slice(0, topN).map(s => {
+      const ens = ensembleMap.get(s.number);
+      const blendedScore = ens
+        ? Math.round((s.trendScore * TRUTH_WEIGHT + ens.ensembleScore * ENSEMBLE_WEIGHT) * 10) / 10
+        : s.trendScore;
+
+      return {
         number: s.number,
-        trendScore: s.trendScore,
+        trendScore: blendedScore,
+        rawTruthScore: s.trendScore,
         confidence: s.confidenceScore,
         evidence: s.evidenceStrength,
         label: s.label,
         signals: s.topSignals,
-        penalties: s.penalties
+        penalties: s.penalties,
+        // New ensemble breakdown for UI transparency
+        ensemble: ens ? {
+          score: ens.ensembleScore,
+          bayesian: ens.bayesianPrior,
+          momentum: ens.momentumScore,
+          gapReturn: ens.gapReturnScore,
+          windowAgreement: ens.windowAgreement,
+          driftAdjusted: ens.driftAdjusted,
+        } : null,
+      };
+    });
+
+    // 6. Also expose top ensemble-only picks (to cross-validate Truth top picks)
+    const ensembleOnlyTop5 = ensembleScores.slice(0, 5).map(e => ({
+      number: e.number,
+      ensembleScore: e.ensembleScore,
+      breakdown: {
+        bayesian: e.bayesianPrior,
+        momentum: e.momentumScore,
+        gapReturn: e.gapReturnScore,
+        windowAgreement: e.windowAgreement,
+      },
     }));
 
     return NextResponse.json({
@@ -85,14 +120,17 @@ export async function GET(request: Request) {
       generatedAt: report.generatedAt,
       latestResult: normalizedRecords[0]?.last2,
       predictions: topPredictions,
+      ensembleTop5: ensembleOnlyTop5,
       engineSummary: {
-          integrity: report.integrityReport.score,
-          verdict: report.realityVerdict.verdict,
-          baselineDelta: report.baselineComparison.delta,
-          backtestHitRate: report.backtestSummary.averageHitRate,
-          driftSeverity: report.driftReport.severity
+        integrity: report.integrityReport.score,
+        verdict: report.realityVerdict.verdict,
+        baselineDelta: report.baselineComparison.delta,
+        backtestHitRate: report.backtestSummary.averageHitRate,
+        driftSeverity: report.driftReport.severity,
+        ensembleActive: true,
+        modelVersion: "Truth+Ensemble v3.0",
       },
-      driftReport: report.driftReport
+      driftReport: report.driftReport,
     });
 
   } catch (err: unknown) {

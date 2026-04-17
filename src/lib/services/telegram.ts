@@ -62,7 +62,8 @@ export function formatResultForTelegram(type: string, date: string, digits: stri
 export function formatGodTierPrediction(type: string, date: string, predictions: any[], engineStatus: string) {
   const topNumbers = predictions.slice(0, 3).map((p, i) => {
     const medal = i === 0 ? '👑' : i === 1 ? '🥈' : '🥉';
-    return `${medal} <b>${p.number}</b> (Score: ${p.score.toFixed(1)})`;
+    const score = (p.trendScore ?? p.score ?? 0);
+    return `${medal} <b>${p.number}</b> (Score: ${Number(score).toFixed(1)})`;
   }).join('\n');
 
   return `
@@ -107,11 +108,11 @@ export function formatRecalibrationAlert(type: string, oldDelta: number, newDelt
  * Formats a comprehensive system status for Telegram.
  */
 export function formatStatusSummary(status: any) {
-    const health = status.systemHealth;
-    const intel = status.intelligence;
-    const pulse = status.marketPulse;
-    
-    return `
+  const health = status.systemHealth;
+  const intel = status.intelligence;
+  const pulse = status.marketPulse;
+
+  return `
 <b>🛰️ SYSTEM STATUS REPORT</b>
 ──────────────────
 🛡️ <b>Integrity:</b> <code>${health.integrity}% (${health.integrityLevel})</code>
@@ -136,7 +137,7 @@ export function formatStatusSummary(status: any) {
  * Formats a Conductor alert for meaningful market synchronization.
  */
 export function formatCorrelationAlert(correlation: any) {
-    return `
+  return `
 <b>🛸 THE CONDUCTOR: MARKET SYNC</b>
 ──────────────────
 ระบบตรวจพบการเคลื่อนไหวที่สอดคล้องกัน (Market Synchronicity):
@@ -145,9 +146,9 @@ export function formatCorrelationAlert(correlation: any) {
 📊 <b>Confidence:</b> <code>${(correlation.syncScore * 100).toFixed(0)}%</code>
 🔑 <b>Common Digits:</b> <code>${correlation.commonDigits.join(", ")}</code>
 
-📢 <b>Verdict:</b> ${correlation.verdict === 'HIGH' 
-    ? 'สภาวะตลาดเป็นหนึ่งเดียว (Harmony) รูปแบบตัวเลขมีโอกาสล้อตามกันในทุกตลาด' 
-    : 'สภาวะตลาดแยกส่วน (Fragmented) รูปแบบของแต่ละตลาดมีความอิสระต่อกันสูง'}
+📢 <b>Verdict:</b> ${correlation.verdict === 'HIGH'
+      ? 'สภาวะตลาดเป็นหนึ่งเดียว (Harmony) รูปแบบตัวเลขมีโอกาสล้อตามกันในทุกตลาด'
+      : 'สภาวะตลาดแยกส่วน (Fragmented) รูปแบบของแต่ละตลาดมีความอิสระต่อกันสูง'}
 
 ──────────────────
 `.trim();
@@ -157,11 +158,11 @@ export function formatCorrelationAlert(correlation: any) {
  * Formats Numerical Radar heat zones for Telegram.
  */
 export function formatRadarSummary(market: string, hyperActive: any[]) {
-    const list = hyperActive.slice(0, 5).map(m => 
-        `🔥 <b>${m.number}</b> | V: <code>${m.velocity}x</code> | A: <code>${(m.acceleration * 100).toFixed(0)}%</code>`
-    ).join('\n');
+  const list = hyperActive.slice(0, 5).map(m =>
+    `🔥 <b>${m.number}</b> | V: <code>${m.velocity}x</code> | A: <code>${(m.acceleration * 100).toFixed(0)}%</code>`
+  ).join('\n');
 
-    return `
+  return `
 <b>🛰️ RADAR HEAT REPORT [${market}]</b>
 ──────────────────
 ระบบตรวจพบแรงเหวี่ยงสูงสุด (Velocity):
@@ -177,8 +178,8 @@ ${list}
  * Formats a high-priority Sentinel warning for global drift.
  */
 export function formatSentinelAlert(globalReport: any) {
-    const markets = globalReport.activeMarkets.join(", ");
-    return `
+  const markets = globalReport.activeMarkets.join(", ");
+  return `
 <b>🛰️ SENTINEL ALERT: GLOBAL DRIFT</b>
 ──────────────────
 ⚠️ <b>ความรุนแรง:</b> <code>${globalReport.severity.toUpperCase()}</code>
@@ -195,7 +196,7 @@ export function formatSentinelAlert(globalReport: any) {
  * Formats a financial risk and ROI report for Telegram.
  */
 export function formatRiskReport(market: string, riskData: any) {
-    return `
+  return `
 <b>💸 FINANCIAL INTELLIGENCE [${market}]</b>
 ──────────────────
 📊 <b>ROI Expectation (EV):</b> <code>${(riskData.expectedValue * 100).toFixed(1)}%</code>

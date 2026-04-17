@@ -11,7 +11,7 @@
   --bg-card: rgba(13, 19, 36, 0.45);
   --bg-card-hover: rgba(22, 30, 50, 0.6);
   --bg-input: rgba(26, 35, 60, 0.5);
-  
+
   --border-color: rgba(65, 85, 140, 0.2);
   --border-hover: rgba(85, 115, 180, 0.4);
 
@@ -58,7 +58,7 @@ html {
 body {
   font-family: "Outfit", "Inter", -apple-system, sans-serif;
   background: var(--bg-primary);
-  background-image: 
+  background-image:
     radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
     radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
     radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.05) 0px, transparent 50%);
@@ -117,6 +117,10 @@ body {
 
 .bg-gradient-emerald {
   background: var(--gradient-emerald);
+}
+
+.bg-gradient-neon {
+  background: var(--gradient-neon);
 }
 
 /* ── Stat Card ── */
@@ -179,14 +183,46 @@ body {
 }
 
 /* ── Heatmap Colors ── */
-.heat-0 { background: rgba(59, 130, 246, 0.05); color: var(--text-muted); }
-.heat-1 { background: rgba(59, 130, 246, 0.15); color: var(--text-secondary); }
-.heat-2 { background: rgba(59, 130, 246, 0.25); color: var(--text-primary); }
-.heat-3 { background: rgba(139, 92, 246, 0.35); color: var(--text-primary); }
-.heat-4 { background: rgba(139, 92, 246, 0.50); color: white; }
-.heat-5 { background: rgba(245, 158, 11, 0.60); color: white; }
-.heat-6 { background: rgba(244, 63, 94, 0.70); color: white; }
-.heat-7 { background: rgba(244, 63, 94, 0.85); color: white; border-color: rgba(244, 63, 94, 0.5); }
+.heat-0 {
+  background: rgba(59, 130, 246, 0.05);
+  color: var(--text-muted);
+}
+
+.heat-1 {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--text-secondary);
+}
+
+.heat-2 {
+  background: rgba(59, 130, 246, 0.25);
+  color: var(--text-primary);
+}
+
+.heat-3 {
+  background: rgba(139, 92, 246, 0.35);
+  color: var(--text-primary);
+}
+
+.heat-4 {
+  background: rgba(139, 92, 246, 0.50);
+  color: white;
+}
+
+.heat-5 {
+  background: rgba(245, 158, 11, 0.60);
+  color: white;
+}
+
+.heat-6 {
+  background: rgba(244, 63, 94, 0.70);
+  color: white;
+}
+
+.heat-7 {
+  background: rgba(244, 63, 94, 0.85);
+  color: white;
+  border-color: rgba(244, 63, 94, 0.5);
+}
 
 /* ── Badge ── */
 .badge {
@@ -347,7 +383,7 @@ body {
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   width: 260px;
-  min-height: 100vh;
+  height: 100vh;
   position: fixed;
   left: 0;
   top: 0;
@@ -355,6 +391,7 @@ body {
   display: flex;
   flex-direction: column;
   transition: transform 0.3s ease;
+  overflow: hidden;
 }
 
 .sidebar-link {
@@ -383,18 +420,67 @@ body {
 
 /* ── Animations ── */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 4px rgba(59, 130, 246, 0.2); }
-  50% { box-shadow: 0 0 16px rgba(59, 130, 246, 0.4); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 4px rgba(59, 130, 246, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.4);
+  }
+}
+
+@keyframes pulse-glow-violet {
+
+  0%,
+  100% {
+    box-shadow: 0 0 4px rgba(139, 92, 246, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--bg-card) 25%, rgba(255, 255, 255, 0.04) 50%, var(--bg-card) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 .animate-fade-in {
@@ -447,7 +533,9 @@ body {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Dropzone ── */

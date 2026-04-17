@@ -18,7 +18,7 @@ export default function ResultsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [last2, setLast2] = useState("");
-  const last3 = "";
+  const [last3, setLast3] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState("drawDate");
@@ -69,9 +69,9 @@ export default function ResultsPage() {
         title="ผลย้อนหลัง"
         description="ตารางข้อมูลผลทั้งหมดในระบบ"
       >
-        <a 
-          href="/api/results/export" 
-          download 
+        <a
+          href="/api/results/export"
+          download
           className="btn-secondary text-xs flex items-center gap-2"
         >
           <Download className="w-4 h-4" />
@@ -81,7 +81,7 @@ export default function ResultsPage() {
 
       {/* Filter Bar */}
       <div className="glass-card p-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3">
           {/* Search */}
           <div className="relative lg:col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
@@ -143,6 +143,19 @@ export default function ResultsPage() {
             value={last2}
             onChange={(e) => {
               setLast2(e.target.value.replace(/\D/g, ""));
+              setPage(1);
+            }}
+          />
+
+          {/* Last3 */}
+          <input
+            type="text"
+            className="input-field"
+            placeholder="เลข 3 ตัวท้าย"
+            maxLength={3}
+            value={last3}
+            onChange={(e) => {
+              setLast3(e.target.value.replace(/\D/g, ""));
               setPage(1);
             }}
           />
