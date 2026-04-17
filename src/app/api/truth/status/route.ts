@@ -1,57 +1,111 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { runTruthPipeline } from '@/lib/truth/pipeline';
+import { runIntegrityThenScoring, runBacktestRefresh } from '@/lib/truth/pipeline';
+import { detectDrift } from '@/lib/truth/drift';
 import { DEFAULT_TRUTH_ENGINE_SETTINGS } from '@/lib/truth/constants';
 import { analyzeCrossMarketCorrelation } from '@/lib/stats/correlation';
+import type { DrawResultRecord } from '@/types';
+import type { DriftReport } from '@/lib/truth/types';
 
 export async function GET() {
   try {
-    // 1. Fetch recent data for global status check
-    const allRecords = await prisma.drawResult.findMany({
+    // 1. Fetch recent data — cap at 150 for speed
+    const rawRecords = await prisma.drawResult.findMany({
       orderBy: { drawDate: 'desc' },
-      take: 200,
+      take: 150,
     });
 
-    if (allRecords.length === 0) {
+    if (rawRecords.length === 0) {
       return NextResponse.json({ error: 'No data' }, { status: 404 });
     }
 
     // 2. Load Champion Weights
     const weightSetting = await prisma.appSetting.findUnique({ where: { key: 'scoreWeights' } });
     const weights = (weightSetting?.valueJson as any) || DEFAULT_TRUTH_ENGINE_SETTINGS.weights;
-    
-    // 3. Run Truth Engine for "NORMAL" market to get representative stats
-    const report = runTruthPipeline(allRecords.filter(r => r.drawType === 'NORMAL') as any, { 
-      settings: { ...DEFAULT_TRUTH_ENGINE_SETTINGS, weights }
-    });
+    const settings = { ...DEFAULT_TRUTH_ENGINE_SETTINGS, weights };
 
-    // 4. Calculate Market Heat (Cross-market frequency)
+    // Normalize
+    const allRecords: DrawResultRecord[] = rawRecords.map(r => ({
+      id: r.id,
+      drawDate: r.drawDate.toISOString(),
+      drawType: r.drawType,
+      drawTime: r.drawTime,
+      resultRaw: r.resultRaw,
+      resultDigits: r.resultDigits,
+      last1: r.last1,
+      last2: r.last2,
+      last3: r.last3,
+      weekday: r.weekday,
+      monthKey: r.monthKey,
+      source: r.source,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+
+    const normalRecords = allRecords.filter(r => r.drawType === 'NORMAL');
+
+    // 3. Lightweight scoring (integrity + scoring only — no backtest inside)
+    const report = runIntegrityThenScoring(normalRecords, { settings });
+
+    // 4. Backtest on limited window (last 80 records only)
+    const backtestRecords = normalRecords.slice(0, 80);
+    const backtestSummary = backtestRecords.length >= 30
+      ? runBacktestRefresh(backtestRecords, { settings, topK: 10 })
+      : {
+        averageDelta: 0,
+        averageHitRate: 0,
+        verdict: 'NO_RELIABLE_EDGE' as const,
+        averageBaseline: 0.1,
+        folds: [],
+        totalFolds: 0,
+        calibrationBuckets: [],
+        insufficientData: true,
+        message: 'Insufficient data',
+      };
+
+    // 5. Drift detection
+    const sorted = [...normalRecords].sort(
+      (a, b) => new Date(a.drawDate).getTime() - new Date(b.drawDate).getTime()
+    );
+    let driftReport: DriftReport = {
+      driftScore: 0,
+      volatilityIndex: 0,
+      affectedAreas: [],
+      severity: 'none',
+      message: 'Insufficient data',
+    };
+    if (sorted.length >= 40) {
+      const split = Math.floor(sorted.length * 0.6);
+      driftReport = detectDrift(sorted.slice(0, split), sorted.slice(split));
+    }
+
+    // 6. Market Heat
     const counts = new Map<string, number>();
     allRecords.forEach(r => counts.set(r.last2, (counts.get(r.last2) || 0) + 1));
-    const sortedCounts = Array.from(counts.entries()).sort((a,b) => b[1] - a[1]);
+    const sortedCounts = Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
 
-    // 5. Run Correlation Intelligence (The Conductor)
+    // 7. Correlation (The Conductor)
     const correlation = analyzeCrossMarketCorrelation(allRecords as any);
 
     return NextResponse.json({
       systemHealth: {
         integrity: report.integrityReport.score,
         integrityLevel: report.integrityReport.level,
-        driftScore: report.driftReport.driftScore,
-        driftSeverity: report.driftReport.severity,
-        verdict: report.realityVerdict.verdict
+        driftScore: driftReport.driftScore,
+        driftSeverity: driftReport.severity,
+        verdict: backtestSummary.verdict,
       },
       intelligence: {
         championWeights: weights,
-        averageDelta: report.backtestSummary.averageDelta,
-        backtestVerdict: report.backtestSummary.verdict,
-        generatedAt: report.generatedAt
+        averageDelta: backtestSummary.averageDelta,
+        backtestVerdict: backtestSummary.verdict,
+        generatedAt: report.generatedAt,
       },
       marketPulse: {
         topGlobalNumbers: sortedCounts.slice(0, 5).map(([num, count]) => ({ num, count })),
-        lastSync: allRecords[0]?.drawDate,
-        correlation
-      }
+        lastSync: rawRecords[0]?.drawDate,
+        correlation,
+      },
     });
 
   } catch (err: any) {

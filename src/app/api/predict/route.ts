@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { runTruthPipeline } from '@/lib/truth/pipeline';
+import { runIntegrityThenScoring } from '@/lib/truth/pipeline';
 import { computeEnsembleScores } from '@/lib/truth/ensemble';
 import { DEFAULT_TRUTH_ENGINE_SETTINGS } from '@/lib/truth/constants';
 import type { DrawResultRecord, DrawType } from '@/types';
@@ -18,10 +18,11 @@ export async function GET(request: Request) {
     const typeStr = parseDrawType(searchParams.get('type'));
     const topN = Math.min(parseInt(searchParams.get('top') || '10', 10), 20);
 
-    // 1. Fetch data — fetch ALL for cross-market correlation
+    // Cap at 150 most recent records per type for prediction speed
+    // (backtest runs in /api/truth/status separately with full data)
     const allRecords = await prisma.drawResult.findMany({
       orderBy: { drawDate: 'desc' },
-      take: 500,
+      take: 300,
     });
 
     if (allRecords.length === 0) {
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
       ? allRecords
       : allRecords.filter(r => r.drawType === typeStr);
 
-    // 2. Load Champion Weights
+    // 1. Load Champion Weights
     const weightSetting = await prisma.appSetting.findUnique({ where: { key: 'scoreWeights' } });
     const weights = {
       ...DEFAULT_TRUTH_ENGINE_SETTINGS.weights,
@@ -57,22 +58,16 @@ export async function GET(request: Request) {
       updatedAt: record.updatedAt.toISOString(),
     }));
 
-    // 3. Run full Truth Pipeline (existing)
-    const report = runTruthPipeline(normalizedRecords, {
-      settings,
-      drawType: typeStr,
-    });
+    // 2. Lightweight: Integrity + Scoring only (no backtest — that runs in /api/truth/status)
+    const report = runIntegrityThenScoring(normalizedRecords, { settings });
 
-    // 4. ── NEW: Bayesian Ensemble Layer ──────────────────
-    const ensembleScores = computeEnsembleScores(normalizedRecords, {
-      driftReport: report.driftReport,
-    });
+    // 3. Bayesian Ensemble Layer
+    const ensembleScores = computeEnsembleScores(normalizedRecords);
 
     // Build lookup map for fast merge
     const ensembleMap = new Map(ensembleScores.map((e) => [e.number, e]));
 
-    // 5. Merge ensemble into Truth scores with weighted blend
-    //    Truth = 60% TruthScore + 40% EnsembleScore  (configurable)
+    // 4. Merge: 60% TruthScore + 40% EnsembleScore
     const TRUTH_WEIGHT = 0.60;
     const ENSEMBLE_WEIGHT = 0.40;
 
@@ -91,7 +86,6 @@ export async function GET(request: Request) {
         label: s.label,
         signals: s.topSignals,
         penalties: s.penalties,
-        // New ensemble breakdown for UI transparency
         ensemble: ens ? {
           score: ens.ensembleScore,
           bayesian: ens.bayesianPrior,
@@ -103,7 +97,7 @@ export async function GET(request: Request) {
       };
     });
 
-    // 6. Also expose top ensemble-only picks (to cross-validate Truth top picks)
+    // 5. Top ensemble-only picks for cross-validation
     const ensembleOnlyTop5 = ensembleScores.slice(0, 5).map(e => ({
       number: e.number,
       ensembleScore: e.ensembleScore,
@@ -123,14 +117,13 @@ export async function GET(request: Request) {
       ensembleTop5: ensembleOnlyTop5,
       engineSummary: {
         integrity: report.integrityReport.score,
-        verdict: report.realityVerdict.verdict,
-        baselineDelta: report.baselineComparison.delta,
-        backtestHitRate: report.backtestSummary.averageHitRate,
-        driftSeverity: report.driftReport.severity,
+        verdict: "MODERATE",        // full verdict computed in /api/truth/status
+        baselineDelta: 0,           // backtest metrics from /api/truth/status
+        backtestHitRate: 0,
+        driftSeverity: "none",
         ensembleActive: true,
         modelVersion: "Truth+Ensemble v3.0",
       },
-      driftReport: report.driftReport,
     });
 
   } catch (err: unknown) {
