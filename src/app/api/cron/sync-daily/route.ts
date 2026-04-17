@@ -184,6 +184,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
   }
+
+  // Quick sync trigger from browser (no auth needed since POST)
+  if (body.sync) {
+    let totalInserted = 0;
+    for (const src of SOURCES) {
+      const url = `https://exphuay.com/backward/${src.slug}`;
+      try {
+        const html = await fetchHtml(url);
+        const entries = parseExphuayHtml(html);
+        if (entries.length === 0) continue;
+        const records = entries.map((e) => buildRecord(e, src.type, src.time));
+        const result = await prisma.drawResult.createMany({ data: records, skipDuplicates: true });
+        totalInserted += result.count;
+        if (result.count > 0) {
+          await prisma.importLog.create({
+            data: {
+              fileName: `browser-sync-${src.slug}`,
+              totalRows: entries.length,
+              importedRows: result.count,
+              skippedRows: entries.length - result.count,
+              errorRows: 0,
+              detailJson: { source: "browser-sync", type: src.type },
+            },
+          });
+        }
+        await sleep(500);
+      } catch (e: any) {
+        console.warn(`Browser sync failed for ${src.label}:`, e.message);
+        continue;
+      }
+    }
+    return NextResponse.json({ success: true, inserted: totalInserted });
+  }
+
   return NextResponse.json({ error: "Invalid test request" }, { status: 400 });
 }
 

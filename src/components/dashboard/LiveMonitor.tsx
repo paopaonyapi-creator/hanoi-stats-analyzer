@@ -81,8 +81,13 @@ export function LiveMonitor() {
   const handleAutoSync = async (label: string) => {
     setIsSyncing(true);
     try {
-       await fetch("/api/cron/sync-daily");
-       console.log(`Auto-sync success for ${label}`);
+       const res = await fetch("/api/cron/sync-daily", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({ sync: true }),
+       });
+       if (res.ok) console.log(`Auto-sync success for ${label}`);
+       else console.warn(`Auto-sync returned ${res.status} for ${label}`);
     } catch (e) {
        console.error("Auto-sync failed", e);
     } finally {

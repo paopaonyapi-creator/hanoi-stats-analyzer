@@ -34,7 +34,6 @@ interface DashboardStatus {
   intelligence: {
     averageDelta: number;
     backtestVerdict: string;
-    expectedValue: number;
   };
   marketPulse: {
     correlation?: {
@@ -179,8 +178,8 @@ export default function DashboardPage() {
           <div className="glass-card p-5 border-l-4 border-l-[var(--accent-emerald)] flex flex-col justify-between">
               <div className="flex justify-between items-start">
                   <div>
-                    <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Expected ROI</div>
-                    <div className="text-3xl font-black text-white">+{((status?.intelligence.expectedValue || 0.12) * 100).toFixed(1)}%</div>
+                    <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">Backtest Delta</div>
+                     <div className="text-3xl font-black text-white">{((status?.intelligence.averageDelta || 0) * 100) > 0 ? '+' : ''}{((status?.intelligence.averageDelta || 0) * 100).toFixed(1)}%</div>
                   </div>
                   <TrendingUp className="w-5 h-5 text-[var(--accent-emerald)] opacity-40" />
               </div>
